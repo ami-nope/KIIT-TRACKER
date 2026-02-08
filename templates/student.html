@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bus Tracker - Student View</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .header p {
+            color: #666;
+        }
+        #map {
+            height: 500px;
+            margin: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .info-box {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        .last-update {
+            color: #666;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚌 KIIT Campus Shuttle</h1>
+        <p>Student View - Live Bus Location</p>
+    </div>
+
+    <div class="info-box">
+        <span class="status">● Bus Active</span>
+        <p class="last-update">Last updated: <span id="lastUpdate">Loading...</span></p>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        let map;
+        let busMarker;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: {lat: 20.3549, lng: 85.8161}
+            });
+
+            busMarker = new google.maps.Marker({
+                map: map,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: '#4CAF50',
+                    fillOpacity: 1,
+                    strokeColor: 'white',
+                    strokeWeight: 3
+                }
+            });
+
+            updateBusLocation();
+            setInterval(updateBusLocation, 3000);
+        }
+
+        function updateBusLocation() {
+            fetch('/api/location')
+                .then(response => response.json())
+                .then(data => {
+                    const position = {lat: data.lat, lng: data.lng};
+                    busMarker.setPosition(position);
+                    map.setCenter(position);
+                    
+                    const now = new Date().toLocaleTimeString();
+                    document.getElementById('lastUpdate').textContent = now;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVONditKeml-368lYW5VGQudNcT-q761M&callback=initMap" async defer></script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bus Tracker - Driver App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #f5576c;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .status-card {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .status-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.active {
+            background: #4CAF50;
+        }
+        .status-indicator.inactive {
+            background: #f44336;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        #startBtn {
+            background: #4CAF50;
+            color: white;
+        }
+        #startBtn:hover {
+            background: #45a049;
+        }
+        #stopBtn {
+            background: #f44336;
+            color: white;
+        }
+        #stopBtn:hover {
+            background: #da190b;
+        }
+        #stopBtn:disabled, #startBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
+        }
+        .info p {
+            color: #1976D2;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 Driver Companion</h1>
+        <p class="subtitle">Campus Shuttle Tracking</p>
+
+        <div class="status-card">
+            <h3>
+                <span class="status-indicator" id="statusDot"></span>
+                Status: <span id="trackingStatus">Inactive</span>
+            </h3>
+            <p style="color: #666; margin-top: 10px;">Updates sent: <span id="updateCount">0</span></p>
+        </div>
+
+        <button id="startBtn" onclick="startTracking()">Start Shift</button>
+        <button id="stopBtn" onclick="stopTracking()" disabled>End Shift</button>
+
+        <div class="info">
+            <p><strong>ℹ️ How it works:</strong></p>
+            <p>• Click "Start Shift" to begin tracking</p>
+            <p>• Your location updates automatically every 5 seconds</p>
+            <p>• Students can see the bus location in real-time</p>
+            <p>• Click "End Shift" when done</p>
+        </div>
+    </div>
+
+    <script>
+        let trackingInterval = null;
+        let updateCount = 0;
+        let watchId = null;
+
+        function startTracking() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser');
+                return;
+            }
+
+            watchId = navigator.geolocation.watchPosition(
+                sendLocation,
+                showError,
+                {enableHighAccuracy: true, maximumAge: 0}
+            );
+
+            document.getElementById('trackingStatus').textContent = 'Active';
+            document.getElementById('statusDot').classList.add('active');
+            document.getElementById('statusDot').classList.remove('inactive');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+        }
+
+        function stopTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            document.getElementById('trackingStatus').textContent = 'Inactive';
+            document.getElementById('statusDot').classList.remove('active');
+            document.getElementById('statusDot').classList.add('inactive');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        function sendLocation(position) {
+            const location = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+
+            fetch('/api/location', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(location)
+            })
+            .then(response => response.json())
+            .then(data => {
+                updateCount++;
+                document.getElementById('updateCount').textContent = updateCount;
+                console.log('Location updated:', location);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function showError(error) {
+            let message = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message = 'Please allow location access to track the bus';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = 'Location information unavailable';
+                    break;
+                case error.TIMEOUT:
+                    message = 'Location request timed out';
+                    break;
+            }
+            alert(message);
+            stopTracking();
+        }
+    </script>
+</body>
+</html>
+```
+
+---
+
+## **Your Final Folder Structure**
+```
+Campus Transport/
+├── app.py
+└── templates/
+    ├── student.html
+    └── driver.html
