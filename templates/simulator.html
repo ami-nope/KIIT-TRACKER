@@ -41,6 +41,7 @@ Route:
 let lat = 20.3549;
 let lng = 85.8161;
 let bus = 1;
+let currentRouteId = null;
 
 let velocityLat = 0;
 let velocityLng = 0;
@@ -82,10 +83,11 @@ async function loadRoutes() {
   });
 
   select.onchange=()=>{
+    currentRouteId = select.value;
     fetch(`/api/bus/${bus}/route`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({routeId:select.value})
+      body:JSON.stringify({routeId: currentRouteId})
     });
   };
 }
@@ -144,10 +146,12 @@ function animate() {
   // Throttled server updates for smoothness
   if (now - lastSent >= SEND_MS) {
     lastSent = now;
+    const payload = { lat, lng, lastUpdate: new Date().toISOString() };
+    if (currentRouteId) payload.routeId = currentRouteId; // only include when set
     fetch(`/api/bus/${bus}`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ lat, lng, lastUpdate: new Date().toISOString(), routeId: null })
+      body: JSON.stringify(payload)
     }).catch(()=>{});
   }
 
