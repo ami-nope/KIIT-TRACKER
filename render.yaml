@@ -3,7 +3,9 @@ services:
     name: kiit-bus-tracker
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --worker-class gthread --threads 8 app:app
+    startCommand: gunicorn --worker-class gthread --threads 8 --timeout 180 --keep-alive 30 app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: GUNICORN_CMD_ARGS
+        value: "--worker-class gthread --threads 8 --timeout 180 --keep-alive 30"

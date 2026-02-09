@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, stream_with_context
 import json
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -71,7 +71,7 @@ def sse_events():
         try:
             while True:
                 try:
-                    msg = q.get(timeout=25)
+                    msg = q.get(timeout=10)
                     yield f'data: {msg}\n\n'
                 except queue.Empty:
                     # heartbeat to keep connection alive through proxies
@@ -84,9 +84,10 @@ def sse_events():
                     pass
     headers = {
         'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no'  # disable buffering on some proxies
+        'X-Accel-Buffering': 'no',  # disable buffering on some proxies
+        'Connection': 'keep-alive'
     }
-    return Response(event_stream(), mimetype='text/event-stream', headers=headers)
+    return Response(stream_with_context(event_stream()), mimetype='text/event-stream', headers=headers)
 
 def load_credentials():
     try:
