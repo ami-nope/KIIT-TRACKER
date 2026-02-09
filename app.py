@@ -1,12 +1,3 @@
-# Try gevent if available, but work without it too
-try:
-    import gevent.monkey
-    gevent.monkey.patch_all()
-    import gevent
-    HAS_GEVENT = True
-except ImportError:
-    HAS_GEVENT = False
-
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, Response, stream_with_context
 from flask_cors import CORS
 import json

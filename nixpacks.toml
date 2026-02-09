@@ -2,4 +2,4 @@
 nixPkgs = ["python312"]
 
 [start]
-cmd = "gunicorn -w 1 -k gevent --timeout 120 -b 0.0.0.0:${PORT:-8080} app:app"
+cmd = "gunicorn -w 1 -k gthread --threads 4 --timeout 120 -b 0.0.0.0:${PORT:-8080} app:app"
