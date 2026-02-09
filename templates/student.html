@@ -324,6 +324,20 @@
                 const marker = busMarkers[busNum];
                 const fromPos = marker ? [marker.getLatLng().lat, marker.getLatLng().lng] : toPos;
                 const rid = busRouteMap[busNum];
+
+                // Skip tween if position hasn't meaningfully changed (<3m)
+                const tweenDist = calcDistance(fromPos[0], fromPos[1], toPos[0], toPos[1]);
+                if (tweenDist < 3) return;
+
+                // Anti-teleport: if jump > 500m, snap instantly instead of tweening
+                if (tweenDist > 500) {
+                    const snapResult = snapToRoute(toPos[0], toPos[1], busNum);
+                    busSnapInfo[busNum] = { segIdx: snapResult.segIdx };
+                    marker.setLatLng(snapResult.pos);
+                    prevBusPositions[busNum] = snapResult.pos;
+                    return;
+                }
+
                 const fromSeg = busSnapInfo[busNum] ? busSnapInfo[busNum].segIdx : -1;
 
                 // Try to get snap info for the destination
@@ -822,8 +836,9 @@
                     const bus = buses[busNum]; const rawPos = [bus.lat, bus.lng]; const color = colors[(parseInt(busNum) - 1) % colors.length];
                     // If SSE already updated this bus recently, skip poll processing to avoid teleporting
                     const lastSSE = busLastSSEUpdate[busNum] || 0;
-                    if (sseConnected && (nowMs - lastSSE) < 3000 && busMarkers[busNum]) {
-                        // SSE is handling this bus live — just update status/opacity
+                    if (sseConnected && (nowMs - lastSSE) < 10000 && busMarkers[busNum]) {
+                        // SSE is handling this bus live — just update status/opacity and keep alive
+                        busLastSeen[busNum] = nowMs; // refresh last-seen so bus doesn't go offline
                         const status = determineStatus(busNum, rawPos, bus.lastUpdate);
                         const isOffline = status === 'Offline';
                         const isTrackedNow = trackedBus && busNum === trackedBus;

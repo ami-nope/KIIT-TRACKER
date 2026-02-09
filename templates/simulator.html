@@ -244,7 +244,10 @@ document.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 // --- Animation Loop ---
 let lastFrame = performance.now();
 let lastSend = 0;
-const SEND_INTERVAL = 200; // ms between server updates
+const SEND_INTERVAL = 200; // ms between server updates when moving
+const IDLE_SEND_INTERVAL = 5000; // ms between server updates when stationary
+let lastSentLat = null, lastSentLng = null;
+let isMoving = false;
 
 function animate(now) {
   const dt = Math.min(0.1, (now - lastFrame) / 1000); // cap at 100ms to avoid jumps
@@ -263,7 +266,8 @@ function animate(now) {
   const mag = Math.sqrt(dx * dx + dy * dy) || 1;
   dx /= mag; dy /= mag;
 
-  if (dx !== 0 || dy !== 0) {
+  isMoving = (dx !== 0 || dy !== 0);
+  if (isMoving) {
     lat += dy * speedDegPerSec * boost * dt;
     lng += dx * speedDegPerSec * boost * dt;
   }
@@ -286,20 +290,29 @@ function animate(now) {
     }
   } catch (e) {}
 
-  // Send updates to server only when simulation is running
-  if (simRunning && bus && now - lastSend >= SEND_INTERVAL) {
-    lastSend = now;
-    const payload = { lat, lng, lastUpdate: new Date().toISOString() };
-    if (currentRouteId) payload.routeId = currentRouteId;
-    fetch(`/api/bus/${bus}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).then(() => {
-      document.getElementById('syncStatus').innerHTML = '<span class="status-dot"></span>Synced';
-    }).catch(() => {
-      document.getElementById('syncStatus').innerHTML = '<span class="status-dot" style="background:#fb7185"></span>Offline';
-    });
+  // Send updates to server — fast when moving, slow heartbeat when idle
+  const sendInterval = isMoving ? SEND_INTERVAL : IDLE_SEND_INTERVAL;
+  if (simRunning && bus && now - lastSend >= sendInterval) {
+    // Skip if position hasn't changed (within ~1m) and not first send
+    const posChanged = lastSentLat === null || 
+      Math.abs(lat - lastSentLat) > 0.00001 || 
+      Math.abs(lng - lastSentLng) > 0.00001;
+    // Always send at heartbeat interval even if not moved (keeps bus alive on server)
+    if (posChanged || now - lastSend >= IDLE_SEND_INTERVAL) {
+      lastSend = now;
+      lastSentLat = lat; lastSentLng = lng;
+      const payload = { lat, lng, lastUpdate: new Date().toISOString() };
+      if (currentRouteId) payload.routeId = currentRouteId;
+      fetch(`/api/bus/${bus}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        document.getElementById('syncStatus').innerHTML = '<span class="status-dot"></span>Synced';
+      }).catch(() => {
+        document.getElementById('syncStatus').innerHTML = '<span class="status-dot" style="background:#fb7185"></span>Offline';
+      });
+    }
   }
 
   requestAnimationFrame(animate);

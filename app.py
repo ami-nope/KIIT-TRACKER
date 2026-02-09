@@ -366,13 +366,21 @@ def update_bus_location(bus_number):
         return jsonify({'error': 'Provide numeric lat and lng'}), 400
     last_update = raw.get('lastUpdate') or time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     bus_id = str(bus_number)
+    should_broadcast = True
     with _buses_lock:
         existing = _buses.get(bus_id, {})
         route_id = raw.get('routeId', existing.get('routeId'))
+        # Skip broadcast if position hasn't meaningfully changed (~2m threshold)
+        if existing and 'lat' in existing and 'lng' in existing:
+            dlat = abs(lat - existing['lat'])
+            dlng = abs(lng - existing['lng'])
+            if dlat < 0.00002 and dlng < 0.00002:
+                should_broadcast = False
         _buses[bus_id] = {'lat': lat, 'lng': lng, 'lastUpdate': last_update, 'routeId': route_id}
         current_data = _buses[bus_id]
     try:
-        broadcast({'type': 'bus_update', 'bus': bus_id, 'data': current_data})
+        if should_broadcast:
+            broadcast({'type': 'bus_update', 'bus': bus_id, 'data': current_data})
     except Exception:
         pass
     return jsonify({'status': 'success', 'bus': bus_number})
