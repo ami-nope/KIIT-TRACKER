@@ -140,6 +140,7 @@ def safe_save_json(path: str, data):
                     time.sleep(0.02) # yield to reader
         except Exception:
             # Fallback if something fails
+            pass
 # Global variable, initialized lazily
 _buses_cache = None
 
