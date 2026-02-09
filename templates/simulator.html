@@ -47,8 +47,8 @@ let velocityLng = 0;
 
 // Slightly higher speed and smoother inertia
 // Tune to ~25% of previous speed for gentler control
-const accel = 0.0000003; // reduced to ~25% of prior value
-const friction = 0.97;   // keep smooth inertia
+const accel = 0.00000012; // slower acceleration
+const friction = 0.96;    // a bit more damping
 
 const map = L.map("map").setView([lat, lng], 16);
 
