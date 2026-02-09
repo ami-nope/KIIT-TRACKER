@@ -193,7 +193,8 @@
         let busesPollTimerId = null;
         const POLL_INTERVAL_MS = 2000;   // fast polling for responsiveness
         const RESYNC_INTERVAL_MS = 10000; // occasional full resync even with SSE
-        const OFFLINE_MS = 15000; // remove buses after ~15 seconds of no updates
+        const OFFLINE_MS = 30000; // mark bus offline after 30s of no updates
+        const REMOVE_MS = 60000; // remove bus marker after 60s of no updates
         const colors = [
             '#FF3B30', '#34C759', '#007AFF', '#FF9500', '#AF52DE',
             '#5AC8FA', '#FF2D55', '#FFD60A', '#32D74B', '#5856D6',
@@ -201,12 +202,14 @@
             '#F1C40F', '#2ECC71', '#E74C3C', '#3498DB', '#E67E22'
         ];
 
-        let prevBusPositions = {};
+        let prevBusPositions = {};  // snapped positions for display
+        let prevRawPositions = {};   // raw positions for status detection
         let prevBusTimes = {};
         let prevBusRotation = {};
         let prevTrackedState = {};
         let prevRouteSelState = {};
         let followEnabled = true;
+        let busLastSeen = {};  // busNum -> Date.now() of last received update
 
         // --- Route snapping: snap bus position to nearest point on its route polyline if within SNAP_DIST_M ---
         const SNAP_DIST_M = 30; // meters — snap threshold
@@ -427,16 +430,22 @@
 
         function parseIsoTime(iso) { try { return new Date(iso).getTime(); } catch(e) { return null; } }
         function computeSpeed(busNum, position, lastUpdateIso) {
-            const prevPos = prevBusPositions[busNum]; const prevTime = prevBusTimes[busNum]; const currTime = parseIsoTime(lastUpdateIso);
+            const prevPos = prevRawPositions[busNum]; const prevTime = prevBusTimes[busNum]; const currTime = parseIsoTime(lastUpdateIso);
             if (!prevPos || !prevTime || !currTime) return null; const meters = calcDistance(prevPos[0], prevPos[1], position[0], position[1]); const secs = Math.max(1, (currTime - prevTime) / 1000); const kmh = (meters / 1000) / (secs / 3600); return Math.round(kmh);
         }
-        function determineStatus(busNum, position, lastUpdateIso) {
-            const currTime = Date.now();
-            const last = parseIsoTime(lastUpdateIso);
-            // offline threshold tightened: treat as Offline after OFFLINE_MS
-            if (!last || (currTime - last) > OFFLINE_MS) return 'Offline';
-            const prevPos = prevBusPositions[busNum];
-            if (prevPos) { const moved = calcDistance(prevPos[0], prevPos[1], position[0], position[1]); if (moved < 2) return 'Idle'; }
+        function determineStatus(busNum, rawPosition, lastUpdateIso) {
+            const nowMs = Date.now();
+            const lastSeen = busLastSeen[busNum] || 0;
+            const serverTime = parseIsoTime(lastUpdateIso);
+            // Use the more recent of server timestamp or local receive time
+            const effectiveTime = Math.max(lastSeen, serverTime || 0);
+            if (!effectiveTime || (nowMs - effectiveTime) > OFFLINE_MS) return 'Offline';
+            // Use raw (unsnapped) positions for movement detection
+            const prevRaw = prevRawPositions[busNum];
+            if (prevRaw) {
+                const moved = calcDistance(prevRaw[0], prevRaw[1], rawPosition[0], rawPosition[1]);
+                if (moved < 5) return 'Idle';  // 5m threshold
+            }
             return 'Moving';
         }
         function getRouteById(id) { return allRoutes.find(r => r.id === id); }
@@ -571,7 +580,7 @@
             const etaEl = document.getElementById('etaValue'); const etaOverlay = document.getElementById('etaOverlay');
             const busesData = busesDataParam || latestBuses || {};
             const nowMs = Date.now();
-            const freshEntries = Object.entries(busesData).filter(([num,b])=>{ const t = b && b.lastUpdate ? parseIsoTime(b.lastUpdate) : null; return t && (nowMs - t) <= OFFLINE_MS; });
+            const freshEntries = Object.entries(busesData).filter(([num,b])=>{ const t = b && b.lastUpdate ? parseIsoTime(b.lastUpdate) : null; const lastSeen = busLastSeen[num] || 0; const effectiveTime = Math.max(lastSeen, t || 0); return effectiveTime && (nowMs - effectiveTime) <= OFFLINE_MS; });
             const freshData = Object.fromEntries(freshEntries);
 
             // Determine active route context: tracked bus route first, else selected route
@@ -621,7 +630,7 @@
 
         function setTrackedBus(busNum) {
             trackedBus = busNum || null;
-            Object.keys(busMarkers).forEach(num => { const marker = busMarkers[num]; const isTracked = trackedBus && num === trackedBus; try { marker.setOpacity(isTracked ? 1 : 0.6); } catch(e) {} const color = colors[(parseInt(num) - 1) % colors.length]; const rid = busRouteMap[num]; const onSelectedRoute = selectedRouteId && String(rid) === String(selectedRouteId); const newIcon = createIcon(num, color, currentIconSize, prevBusRotation[num] || 0, isTracked || onSelectedRoute); marker.setIcon(newIcon); prevTrackedState[num] = !!isTracked; prevRouteSelState[num] = !!onSelectedRoute; });
+            Object.keys(busMarkers).forEach(num => { const marker = busMarkers[num]; const isTracked = trackedBus && num === trackedBus; const rawPos = prevRawPositions[num]; const busData = latestBuses[num]; const status = (rawPos && busData) ? determineStatus(num, rawPos, busData.lastUpdate) : 'Offline'; const isOffline = status === 'Offline'; try { marker.setOpacity(isOffline ? 0.3 : (isTracked ? 1 : 0.7)); } catch(e) {} const color = colors[(parseInt(num) - 1) % colors.length]; const rid = busRouteMap[num]; const onSelectedRoute = selectedRouteId && String(rid) === String(selectedRouteId); const newIcon = createIcon(num, color, currentIconSize, prevBusRotation[num] || 0, isTracked || onSelectedRoute); marker.setIcon(newIcon); prevTrackedState[num] = !!isTracked; prevRouteSelState[num] = !!onSelectedRoute; });
             const rid = busRouteMap[busNum]; if (rid) { selectRoute(rid); const routeObj = getRouteById(rid); if(routeObj) showRouteDetails(routeObj); }
             computeAndShowStudentETA();
         }
@@ -679,15 +688,28 @@
                 latestBuses = buses || {};
                 const nowMs = Date.now();
                 const busNumbers = Object.keys(buses);
-                // Only keep buses fresh within OFFLINE_MS
-                const freshBusNumbers = busNumbers.filter(n => {
-                    const iso = buses[n] && buses[n].lastUpdate; const t = iso ? parseIsoTime(iso) : null; return t && (nowMs - t) <= OFFLINE_MS;
+                // Keep buses that have data — don't filter by time here, let status handle it
+                const visibleBusNumbers = busNumbers.filter(n => {
+                    const b = buses[n];
+                    if (!b || typeof b.lat !== 'number' || typeof b.lng !== 'number') return false;
+                    const iso = b.lastUpdate; const t = iso ? parseIsoTime(iso) : null;
+                    const lastSeen = busLastSeen[n] || 0;
+                    const effectiveTime = Math.max(lastSeen, t || 0);
+                    // Only fully remove after REMOVE_MS
+                    return effectiveTime && (nowMs - effectiveTime) <= REMOVE_MS;
                 });
-                const activeCountEl = document.getElementById('activeBusCount'); if (activeCountEl) activeCountEl.textContent = freshBusNumbers.length;
-                const activeCountOverlay = document.getElementById('activeCountOverlay'); if (activeCountOverlay) activeCountOverlay.textContent = freshBusNumbers.length;
-                // Remove markers for buses missing or stale
+                // Mark local receive time for all buses in this response
+                visibleBusNumbers.forEach(n => { busLastSeen[n] = nowMs; });
+                const freshBusNumbers = visibleBusNumbers;
+                const activeCount = freshBusNumbers.filter(n => {
+                    const status = determineStatus(n, [buses[n].lat, buses[n].lng], buses[n].lastUpdate);
+                    return status !== 'Offline';
+                }).length;
+                const activeCountEl = document.getElementById('activeBusCount'); if (activeCountEl) activeCountEl.textContent = activeCount;
+                const activeCountOverlay = document.getElementById('activeCountOverlay'); if (activeCountOverlay) activeCountOverlay.textContent = activeCount;
+                // Remove markers for buses missing or fully stale (beyond REMOVE_MS)
                 const existingBuses = Object.keys(busMarkers);
-                existingBuses.forEach(busNum => { if (!freshBusNumbers.includes(busNum)) { map.removeLayer(busMarkers[busNum]); delete busMarkers[busNum]; } });
+                existingBuses.forEach(busNum => { if (!freshBusNumbers.includes(busNum)) { map.removeLayer(busMarkers[busNum]); delete busMarkers[busNum]; delete prevRawPositions[busNum]; delete prevBusPositions[busNum]; delete prevBusTimes[busNum]; delete busLastSeen[busNum]; } });
                 freshBusNumbers.forEach(busNum => {
                     const bus = buses[busNum]; const rawPos = [bus.lat, bus.lng]; const color = colors[(parseInt(busNum) - 1) % colors.length];
                     // Snap to route if close enough
@@ -696,6 +718,9 @@
                     busSnapInfo[busNum] = { segIdx: snapResult.segIdx };
                     let rotation = 0; if (prevBusPositions[busNum]) { rotation = calcBearing(prevBusPositions[busNum], position); }
                     const isTracked = trackedBus && busNum === trackedBus;
+                    const status = determineStatus(busNum, rawPos, bus.lastUpdate);
+                    const isOffline = status === 'Offline';
+                    prevRawPositions[busNum] = rawPos;
                     prevBusPositions[busNum] = position; if (bus.lastUpdate) prevBusTimes[busNum] = parseIsoTime(bus.lastUpdate);
                     if (busMarkers[busNum]) {
                         queueBusTween(busNum, rawPos);
@@ -723,7 +748,10 @@
                         busMarkers[busNum].on('click', () => { setTrackedBus(busNum); if (followEnabled) map.setView(position, 17); busMarkers[busNum].openPopup(); });
                         busMarkers[busNum].on('mouseover', () => { followEnabled = false; }); busMarkers[busNum].on('mouseout', () => { followEnabled = true; });
                     }
-                    const marker = busMarkers[busNum]; const isTrackedNow = trackedBus && busNum === trackedBus; try { marker.setOpacity(isTrackedNow ? 1 : 0.6); } catch(e) {} if (isTrackedNow && followEnabled) { map.panTo(position); }
+                    const marker = busMarkers[busNum]; const isTrackedNow = trackedBus && busNum === trackedBus;
+                    // Dim offline buses instead of removing
+                    try { marker.setOpacity(isOffline ? 0.3 : (isTrackedNow ? 1 : 0.7)); } catch(e) {}
+                    if (isTrackedNow && followEnabled && !isOffline) { map.panTo(position); }
                 });
                 updateActiveBusList(freshBusNumbers, buses);
                 computeAndShowStudentETA(latestBuses);
@@ -743,7 +771,8 @@
                 item.className = `bus-item ${onSelectedRoute ? 'active-route' : ''}`;
                 item.style.borderLeftColor = color;
                 item.onclick = () => { const position = [buses[busNum].lat, buses[busNum].lng]; map.setView(position, 17); };
-                const status = determineStatus(busNum, [buses[busNum].lat, buses[busNum].lng], buses[busNum].lastUpdate);
+                const rawPos = [buses[busNum].lat, buses[busNum].lng];
+                const status = determineStatus(busNum, rawPos, buses[busNum].lastUpdate);
                 item.innerHTML = `<div class="bus-info"><div class="bus-dot" style="background-color: ${color}; transform:${onSelectedRoute ? 'scale(1.08)' : 'scale(1)'}">${busNum}</div><div class="bus-name">Transport ${busNum}</div></div><div class="bus-status"><div class="pulse"></div>${status}</div>`;
                 container.appendChild(item);
             });
@@ -768,6 +797,10 @@
                             if(typeof b.lat !== 'number' || typeof b.lng !== 'number') return;
                             // update route mapping if provided
                             if(b.routeId != null) busRouteMap[busNum] = b.routeId;
+                            // Track last seen time and raw position for status
+                            busLastSeen[busNum] = Date.now();
+                            prevRawPositions[busNum] = [b.lat, b.lng];
+                            if(b.lastUpdate) prevBusTimes[busNum] = parseIsoTime(b.lastUpdate);
                             // update cache and animate
                             latestBuses[busNum] = { ...(latestBuses[busNum]||{}), ...b };
                             if(!busMarkers[busNum]){
@@ -785,6 +818,10 @@
                         } else if(msg.type === 'bus_stop'){
                             const busNum = String(msg.bus);
                             delete latestBuses[busNum];
+                            delete busLastSeen[busNum];
+                            delete prevRawPositions[busNum];
+                            delete prevBusPositions[busNum];
+                            delete prevBusTimes[busNum];
                             const m = busMarkers[busNum]; if(m){ try{ map.removeLayer(m); }catch(e){} delete busMarkers[busNum]; }
                         } else if(msg.type === 'buses_clear'){
                             latestBuses = {};
