@@ -45,13 +45,13 @@ body { margin:0; background:#0f0f23; color:#e6eef8; font-family:'Segoe UI',sans-
 
   <label>Speed Multiplier
     <div class="speed-row">
-      <input type="range" id="speedSlider" min="0.5" max="10" step="0.5" value="2"/>
-      <span class="speed-val" id="speedLabel">2x</span>
+      <input type="range" id="speedSlider" min="0.01" max="10" step="0.01" value="5"/>
+      <span class="speed-val" id="speedLabel">5x</span>
     </div>
   </label>
 
   <label>Custom Speed (km/h)
-    <input type="number" id="customSpeed" min="0" max="200" step="5" placeholder="Leave empty for WASD mode"/>
+    <input type="number" id="customSpeed" min="0" max="200" step="1" placeholder="Leave empty for WASD mode"/>
   </label>
 
   <div class="keys-hint">
@@ -71,10 +71,10 @@ let lat = 20.3549, lng = 85.8161;
 let bus = 1;
 let currentRouteId = null;
 let vx = 0, vy = 0; // velocity in lat/lng per second
-let speedMul = 2.0;
+let speedMul = 5.0;
 
 // Physics tuned for smooth, consistent movement
-const BASE_SPEED = 0.00004;  // base speed in degrees/sec (~4.4 m/s ≈ 16 km/h at equator)
+const BASE_SPEED = 0.000004;  // base speed in degrees/sec (10% of original)
 const FRICTION = 0.88;       // per-frame damping (lower = more responsive stops)
 const BOOST = 2.5;           // shift multiplier
 
