@@ -210,6 +210,10 @@
         let prevRouteSelState = {};
         let followEnabled = true;
         let busLastSeen = {};  // busNum -> Date.now() of last received update
+        let busDirection = {};  // busNum -> 'up' | 'down' (direction along route stops)
+        let busLastStopIdx = {}; // busNum -> last nearest stop index
+        let busCurrentStop = {}; // busNum -> stop name if at a stop, null otherwise
+        const AT_STOP_THRESHOLD = 50; // meters - consider bus "at stop" within this distance
 
         // --- Route snapping: snap bus position to nearest point on its route polyline if within SNAP_DIST_M ---
         const SNAP_DIST_M = 30; // meters — snap threshold
@@ -428,35 +432,105 @@
         let trackedBus = null;
         let visibleLayers = { routes: true, hostels: true, classes: true };
 
-        function parseIsoTime(iso) { try { return new Date(iso).getTime(); } catch(e) { return null; } }
+        function parseIsoTime(iso) { try { const t = new Date(iso).getTime(); return isNaN(t) ? null : t; } catch(e) { return null; } }
         function computeSpeed(busNum, position, lastUpdateIso) {
             const prevPos = prevRawPositions[busNum]; const prevTime = prevBusTimes[busNum]; const currTime = parseIsoTime(lastUpdateIso);
-            if (!prevPos || !prevTime || !currTime) return null; const meters = calcDistance(prevPos[0], prevPos[1], position[0], position[1]); const secs = Math.max(1, (currTime - prevTime) / 1000); const kmh = (meters / 1000) / (secs / 3600); return Math.round(kmh);
+            if (!prevPos || !prevTime || !currTime) return null;
+            const timeDelta = (currTime - prevTime) / 1000;
+            // Need at least 1.5s between samples for meaningful speed
+            if (timeDelta < 1.5) return null;
+            const meters = calcDistance(prevPos[0], prevPos[1], position[0], position[1]);
+            const kmh = (meters / 1000) / (timeDelta / 3600);
+            // Cap at 120 km/h — anything higher is GPS noise
+            if (kmh > 120) return null;
+            return Math.round(kmh);
+        }
+        // Check if bus is at any stop on its route, returns stop name or null
+        function checkAtStop(busNum, rawPosition) {
+            const routeId = busRouteMap[busNum];
+            const route = routeId ? getRouteById(routeId) : null;
+            if (!route || !route.waypoints) return null;
+            for (let i = 0; i < route.waypoints.length; i++) {
+                const wp = route.waypoints[i];
+                const d = calcDistance(rawPosition[0], rawPosition[1], wp[0], wp[1]);
+                if (d <= AT_STOP_THRESHOLD) {
+                    return (route.stops && route.stops[i]) ? route.stops[i] : `Stop ${i + 1}`;
+                }
+            }
+            return null;
         }
         function determineStatus(busNum, rawPosition, lastUpdateIso) {
             const nowMs = Date.now();
             const lastSeen = busLastSeen[busNum] || 0;
             const serverTime = parseIsoTime(lastUpdateIso);
-            // Use the more recent of server timestamp or local receive time
             const effectiveTime = Math.max(lastSeen, serverTime || 0);
             if (!effectiveTime || (nowMs - effectiveTime) > OFFLINE_MS) return 'Offline';
-            // Use raw (unsnapped) positions for movement detection
+            // Check if at a route stop
+            const atStop = checkAtStop(busNum, rawPosition);
+            if (atStop) { busCurrentStop[busNum] = atStop; return 'At Stop'; }
+            busCurrentStop[busNum] = null;
+            // Use raw positions for movement detection
             const prevRaw = prevRawPositions[busNum];
             if (prevRaw) {
                 const moved = calcDistance(prevRaw[0], prevRaw[1], rawPosition[0], rawPosition[1]);
-                if (moved < 5) return 'Idle';  // 5m threshold
+                if (moved < 5) return 'Idle';
             }
             return 'Moving';
         }
+        // Update bus direction along route based on which stop index it's nearest to
+        function updateBusDirection(busNum, rawPosition) {
+            const routeId = busRouteMap[busNum];
+            const route = routeId ? getRouteById(routeId) : null;
+            if (!route || !route.waypoints || route.waypoints.length < 2) return;
+            // Find nearest stop index
+            let bestIdx = 0, bestD = Infinity;
+            route.waypoints.forEach((wp, i) => {
+                const d = calcDistance(rawPosition[0], rawPosition[1], wp[0], wp[1]);
+                if (d < bestD) { bestD = d; bestIdx = i; }
+            });
+            const prevIdx = busLastStopIdx[busNum];
+            if (prevIdx !== undefined && prevIdx !== bestIdx) {
+                busDirection[busNum] = bestIdx > prevIdx ? 'down' : 'up';
+            }
+            busLastStopIdx[busNum] = bestIdx;
+        }
         function getRouteById(id) { return allRoutes.find(r => r.id === id); }
-        function getNextStopForRoute(route, position) {
+        function getNextStopForRoute(route, position, busNum) {
             if (!route || !route.waypoints || route.waypoints.length === 0) return { name: null, index: 0 };
-            let bestIdx = 0; let bestD = Infinity; route.waypoints.forEach((wp, i) => { const d = calcDistance(position[0], position[1], wp[0], wp[1]); if (d < bestD) { bestD = d; bestIdx = i; } });
-            const nextIdx = Math.min(route.waypoints.length - 1, bestIdx + 1); const nextName = (route.stops && route.stops[nextIdx]) ? route.stops[nextIdx] : `Stop ${nextIdx + 1}`; return { name: nextName, index: nextIdx };
+            // Find nearest stop
+            let bestIdx = 0, bestD = Infinity;
+            route.waypoints.forEach((wp, i) => {
+                const d = calcDistance(position[0], position[1], wp[0], wp[1]);
+                if (d < bestD) { bestD = d; bestIdx = i; }
+            });
+            // Use tracked direction to determine next stop
+            const dir = busNum ? busDirection[busNum] : null;
+            let nextIdx;
+            if (dir === 'up') {
+                // Moving toward index 0
+                nextIdx = Math.max(0, bestIdx - 1);
+                // If already at first stop, wrap or stay
+                if (bestIdx === 0) nextIdx = 0;
+            } else {
+                // Default: moving toward last stop ('down' or unknown)
+                nextIdx = Math.min(route.waypoints.length - 1, bestIdx + 1);
+                if (bestIdx === route.waypoints.length - 1) nextIdx = route.waypoints.length - 1;
+            }
+            // If bus is AT the nearest stop, the next stop is the one in the direction of travel
+            if (bestD <= AT_STOP_THRESHOLD) {
+                if (dir === 'up') { nextIdx = Math.max(0, bestIdx - 1); }
+                else { nextIdx = Math.min(route.waypoints.length - 1, bestIdx + 1); }
+            }
+            const nextName = (route.stops && route.stops[nextIdx]) ? route.stops[nextIdx] : `Stop ${nextIdx + 1}`;
+            return { name: nextName, index: nextIdx };
         }
         function buildBusPopup(busNum, busData) {
-            const routeId = busRouteMap[busNum]; const route = getRouteById(routeId); const position = [busData.lat, busData.lng]; const status = determineStatus(busNum, position, busData.lastUpdate); const speed = computeSpeed(busNum, position, busData.lastUpdate); const nextStop = route ? getNextStopForRoute(route, position).name : null; const routeName = route ? route.name : '—'; const last = busData.lastUpdate ? new Date(busData.lastUpdate).toLocaleTimeString() : '—';
-            return `<div style="min-width:220px;background:#0f1220;color:#e6eef8;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px"><div style="font-weight:600;margin-bottom:6px">Transport ${busNum}</div><div style="font-size:13px;color:#9aa4b2">Route: <span style="color:#dbeafe">${routeName}</span></div><div style="font-size:13px;color:#9aa4b2">Status: <span style="color:${status==='Moving'?'#34d399':status==='Idle'?'#fbbf24':'#fb7185'}">${status}</span></div><div style="font-size:13px;color:#9aa4b2">Last update: <span style="color:#dbeafe">${last}</span></div><div style="font-size:13px;color:#9aa4b2">Speed: <span style="color:#dbeafe">${speed? speed+' km/h' : '—'}</span></div><div style="font-size:13px;color:#9aa4b2">Next stop: <span style="color:#dbeafe">${nextStop || '—'}</span></div></div>`;
+            const routeId = busRouteMap[busNum]; const route = getRouteById(routeId); const position = [busData.lat, busData.lng]; const status = determineStatus(busNum, position, busData.lastUpdate); const speed = computeSpeed(busNum, position, busData.lastUpdate); const nextStop = route ? getNextStopForRoute(route, position, busNum).name : null; const routeName = route ? route.name : '—'; const last = busData.lastUpdate ? new Date(busData.lastUpdate).toLocaleTimeString() : '—';
+            const statusColor = status==='Moving'?'#34d399':status==='At Stop'?'#5AC8FA':status==='Idle'?'#fbbf24':'#fb7185';
+            const atStopName = busCurrentStop[busNum];
+            const speedDisplay = (speed !== null && speed !== undefined) ? speed + ' km/h' : '—';
+            let html = `<div style="min-width:220px;background:#0f1220;color:#e6eef8;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px"><div style="font-weight:600;margin-bottom:6px">Transport ${busNum}</div><div style="font-size:13px;color:#9aa4b2">Route: <span style="color:#dbeafe">${routeName}</span></div><div style="font-size:13px;color:#9aa4b2">Status: <span style="color:${statusColor}">${status}${atStopName ? ' — ' + atStopName : ''}</span></div><div style="font-size:13px;color:#9aa4b2">Last update: <span style="color:#dbeafe">${last}</span></div><div style="font-size:13px;color:#9aa4b2">Speed: <span style="color:#dbeafe">${speedDisplay}</span></div><div style="font-size:13px;color:#9aa4b2">Next stop: <span style="color:#dbeafe">${nextStop || '—'}</span></div></div>`;
+            return html;
         }
 
         function updateLayerVisibility(layer, visible) {
@@ -612,10 +686,9 @@
             // Compute speed and ETA with min-change smoothing and HH:MM display
             const speedKmh = computeSpeed(chosenBusNum, [chosenBus.lat, chosenBus.lng], chosenBus.lastUpdate);
             const distMeters = calcDistance(chosenBus.lat, chosenBus.lng, nearestStop[0], nearestStop[1]);
-            const atStopThreshold = 15; // meters
             const avgSpeed = 25; // km/h
 
-            if (distMeters <= atStopThreshold) { maybeUpdateStudentEta('At Stop'); return; }
+            if (distMeters <= AT_STOP_THRESHOLD) { maybeUpdateStudentEta('At Stop'); return; }
 
             let seconds;
             if (speedKmh && speedKmh > 0.1) { seconds = Math.ceil(((distMeters/1000) / speedKmh) * 3600); }
@@ -709,7 +782,7 @@
                 const activeCountOverlay = document.getElementById('activeCountOverlay'); if (activeCountOverlay) activeCountOverlay.textContent = activeCount;
                 // Remove markers for buses missing or fully stale (beyond REMOVE_MS)
                 const existingBuses = Object.keys(busMarkers);
-                existingBuses.forEach(busNum => { if (!freshBusNumbers.includes(busNum)) { map.removeLayer(busMarkers[busNum]); delete busMarkers[busNum]; delete prevRawPositions[busNum]; delete prevBusPositions[busNum]; delete prevBusTimes[busNum]; delete busLastSeen[busNum]; } });
+                existingBuses.forEach(busNum => { if (!freshBusNumbers.includes(busNum)) { map.removeLayer(busMarkers[busNum]); delete busMarkers[busNum]; delete prevRawPositions[busNum]; delete prevBusPositions[busNum]; delete prevBusTimes[busNum]; delete busLastSeen[busNum]; delete busDirection[busNum]; delete busLastStopIdx[busNum]; delete busCurrentStop[busNum]; } });
                 freshBusNumbers.forEach(busNum => {
                     const bus = buses[busNum]; const rawPos = [bus.lat, bus.lng]; const color = colors[(parseInt(busNum) - 1) % colors.length];
                     // Snap to route if close enough
@@ -720,6 +793,7 @@
                     const isTracked = trackedBus && busNum === trackedBus;
                     const status = determineStatus(busNum, rawPos, bus.lastUpdate);
                     const isOffline = status === 'Offline';
+                    updateBusDirection(busNum, rawPos);
                     prevRawPositions[busNum] = rawPos;
                     prevBusPositions[busNum] = position; if (bus.lastUpdate) prevBusTimes[busNum] = parseIsoTime(bus.lastUpdate);
                     if (busMarkers[busNum]) {
@@ -773,7 +847,18 @@
                 item.onclick = () => { const position = [buses[busNum].lat, buses[busNum].lng]; map.setView(position, 17); };
                 const rawPos = [buses[busNum].lat, buses[busNum].lng];
                 const status = determineStatus(busNum, rawPos, buses[busNum].lastUpdate);
-                item.innerHTML = `<div class="bus-info"><div class="bus-dot" style="background-color: ${color}; transform:${onSelectedRoute ? 'scale(1.08)' : 'scale(1)'}">${busNum}</div><div class="bus-name">Transport ${busNum}</div></div><div class="bus-status"><div class="pulse"></div>${status}</div>`;
+                const statusColor = status==='Moving'?'#34d399':status==='At Stop'?'#5AC8FA':status==='Idle'?'#fbbf24':'#fb7185';
+                const atStopName = busCurrentStop[busNum];
+                const route = getRouteById(rid);
+                const nextStop = route ? getNextStopForRoute(route, rawPos, busNum).name : null;
+                let statusHtml = `<div class="bus-status" style="color:${statusColor}"><div class="pulse" style="background:${statusColor}"></div>${status}</div>`;
+                let stopRow = '';
+                if (atStopName) {
+                    stopRow = `<div style="font-size:11px;color:#5AC8FA;padding:2px 0 0 36px;font-weight:500">AT: ${atStopName}</div>`;
+                } else if (nextStop) {
+                    stopRow = `<div style="font-size:11px;color:#9aa4b2;padding:2px 0 0 36px">Next: ${nextStop}</div>`;
+                }
+                item.innerHTML = `<div class="bus-info"><div class="bus-dot" style="background-color: ${color}; transform:${onSelectedRoute ? 'scale(1.08)' : 'scale(1)'}">${busNum}</div><div class="bus-name">Transport ${busNum}</div></div>${statusHtml}${stopRow}`;
                 container.appendChild(item);
             });
         }
@@ -797,8 +882,9 @@
                             if(typeof b.lat !== 'number' || typeof b.lng !== 'number') return;
                             // update route mapping if provided
                             if(b.routeId != null) busRouteMap[busNum] = b.routeId;
-                            // Track last seen time and raw position for status
+                            // Track last seen time, direction, and raw position for status
                             busLastSeen[busNum] = Date.now();
+                            updateBusDirection(busNum, [b.lat, b.lng]);
                             prevRawPositions[busNum] = [b.lat, b.lng];
                             if(b.lastUpdate) prevBusTimes[busNum] = parseIsoTime(b.lastUpdate);
                             // update cache and animate
@@ -822,6 +908,9 @@
                             delete prevRawPositions[busNum];
                             delete prevBusPositions[busNum];
                             delete prevBusTimes[busNum];
+                            delete busDirection[busNum];
+                            delete busLastStopIdx[busNum];
+                            delete busCurrentStop[busNum];
                             const m = busMarkers[busNum]; if(m){ try{ map.removeLayer(m); }catch(e){} delete busMarkers[busNum]; }
                         } else if(msg.type === 'buses_clear'){
                             latestBuses = {};
