@@ -310,20 +310,21 @@
         function createIcon(busNum, color, size, rotation = 0, glow = false) {
             size = size || currentIconSize;
             const half = Math.round(size / 2);
-            const stroke = Math.max(1, Math.round(size * 0.08));
+            const stroke = Math.max(1.5, Math.round(size * 0.1));
             const headR = Math.round(size * 0.34);
             const headCY = Math.round(size * 0.42);
             const tipY = size - 1;
             const fontSize = Math.max(8, Math.round(size * 0.40));
             const textY = headCY;
-            const glowFill = glow ? `${color}33` : 'none';
             const path = `M ${half} ${tipY} L ${Math.round(half - headR * 0.58)} ${Math.round(headCY + headR * 0.32)} A ${headR} ${headR} 0 1 1 ${Math.round(half + headR * 0.58)} ${Math.round(headCY + headR * 0.32)} L ${half} ${tipY} Z`;
-            const pad = 2;
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="-${pad} -${pad} ${size+pad*2} ${size+pad*2}" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45))">
-              <path d="${path}" fill="${glowFill}"/>
-              <path d="${path}" fill="${color}" stroke="rgba(255,255,255,0.8)" stroke-width="${stroke}"/>
+            const pad = 4;
+            const glowR = headR + 4;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="-${pad} -${pad} ${size+pad*2} ${size+pad*2}" style="filter:drop-shadow(0 0 6px ${color}88) drop-shadow(0 2px 3px rgba(0,0,0,0.6))">
+              ${glow ? `<circle cx="${half}" cy="${headCY}" r="${glowR}" fill="${color}" opacity="0.2"/>` : ''}
+              <path d="${path}" fill="${color}" stroke="#fff" stroke-width="${stroke}"/>
+              <circle cx="${half}" cy="${Math.round(headCY - headR * 0.15)}" r="${Math.round(headR * 0.55)}" fill="rgba(255,255,255,0.15)"/>
               <text x="${half}" y="${textY}" text-anchor="middle" dominant-baseline="central"
-                fill="#fff" font-family="Segoe UI,Arial" font-weight="700" font-size="${fontSize}">${busNum}</text>
+                fill="#fff" font-family="Segoe UI,Arial" font-weight="800" font-size="${fontSize}" style="text-shadow:0 1px 2px rgba(0,0,0,0.5)">${busNum}</text>
             </svg>`;
             return L.divIcon({ className: 'bus-icon', html: svg, iconSize: [size, size], iconAnchor: [half, tipY] });
         }
