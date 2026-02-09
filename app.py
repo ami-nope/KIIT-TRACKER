@@ -175,19 +175,14 @@ def sse_events():
     return Response(stream_with_context(event_stream()), mimetype='text/event-stream', headers=headers)
 
 def load_credentials():
-    try:
-        with open(CREDENTIALS_FILE, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-# ...existing code...
+    return safe_load_json(CREDENTIALS_FILE, {})
 
 @app.route('/driver')
 def driver_view():
     creds = load_credentials()
     institute = creds.get('institute_name', 'INSTITUTE')
     return render_template('driver.html', institute_name=institute)
+
 def login_required(fn):
     from functools import wraps
     @wraps(fn)
@@ -345,63 +340,70 @@ def change_admin_password(username):
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    creds = load_credentials()
-    if request.method == 'GET':
-        has_admins = bool(creds.get('admins'))
-        return render_template('admin_login.html', credentials_exist=has_admins, institute_name=creds.get('institute_name', 'INSTITUTE'))
+    try:
+        creds = load_credentials()
+        
+        if request.method == 'GET':
+            has_admins = bool(creds.get('admins'))
+            return render_template('admin_login.html', credentials_exist=has_admins, institute_name=creds.get('institute_name', 'INSTITUTE'))
 
-    data = request.form
-    action = data.get('action')
-    institute = data.get('institute_name', '').strip()
-    username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
-    error_text = None
+        data = request.form
+        action = data.get('action')
+        institute = data.get('institute_name', '').strip()
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        error_text = None
 
-    # Ensure admins list exists
-    if 'admins' not in creds:
-        creds['admins'] = []
+        # Ensure admins list exists
+        if 'admins' not in creds:
+            creds['admins'] = []
 
-    if action == 'signup':
-        signup_pin = (data.get('signup_pin', '') or '').strip()
-        # Require correct pin 456123 for admin account creation
-        valid_pin = signup_pin == '456123'
-        if not valid_pin:
-            error_text = "Invalid signup pin."
-        elif not username or not password:
-            error_text = "Provide username and password."
-        elif any(a.get('username') == username for a in creds['admins']):
-            error_text = "Admin username already exists."
-        else:
-            creds['institute_name'] = institute or creds.get('institute_name', 'INSTITUTE')
-            creds['pin_hash'] = generate_password_hash('456123')
-            creds['admins'].append({
-                'username': username,
-                'password_hash': generate_password_hash(password)
-            })
-            save_credentials(creds)
-            session['admin'] = username
-            return redirect(url_for('admin_view'))
-        has_admins = bool(creds.get('admins'))
-        return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
-
-    elif action == 'login':
-        if not creds.get('admins'):
-            error_text = "No admin accounts exist. Please signup first."
-        else:
-            # Find matching admin
-            admin = next((a for a in creds['admins'] if a.get('username') == username), None)
-            if not admin:
-                error_text = "Invalid username."
-            elif admin.get('password_hash') and check_password_hash(admin['password_hash'], password):
+        if action == 'signup':
+            signup_pin = (data.get('signup_pin', '') or '').strip()
+            # Require correct pin 456123 for admin account creation
+            valid_pin = signup_pin == '456123'
+            if not valid_pin:
+                error_text = "Invalid signup pin."
+            elif not username or not password:
+                error_text = "Provide username and password."
+            elif any(a.get('username') == username for a in creds['admins']):
+                error_text = "Admin username already exists."
+            else:
+                creds['institute_name'] = institute or creds.get('institute_name', 'INSTITUTE')
+                creds['pin_hash'] = generate_password_hash('456123')
+                creds['admins'].append({
+                    'username': username,
+                    'password_hash': generate_password_hash(password)
+                })
+                save_credentials(creds)
                 session['admin'] = username
                 return redirect(url_for('admin_view'))
-            else:
-                error_text = "Invalid password."
-        has_admins = bool(creds.get('admins'))
-        return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
+            has_admins = bool(creds.get('admins'))
+            return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
 
-    has_admins = bool(creds.get('admins'))
-    return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text="Invalid action.")
+        elif action == 'login':
+            if not creds.get('admins'):
+                error_text = "No admin accounts exist. Please signup first."
+            else:
+                # Find matching admin
+                admin = next((a for a in creds['admins'] if a.get('username') == username), None)
+                if not admin:
+                    error_text = "Invalid username."
+                elif admin.get('password_hash') and check_password_hash(admin['password_hash'], password):
+                    session['admin'] = username
+                    return redirect(url_for('admin_view'))
+                else:
+                    error_text = "Invalid password."
+            has_admins = bool(creds.get('admins'))
+            return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
+
+        has_admins = bool(creds.get('admins'))
+        return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text="Invalid action.")
+    except Exception as e:
+        # Failsafe for debugging
+        import traceback
+        traceback.print_exc()
+        return f"Server Error (Admin Login): {str(e)}", 500
 
 
 @app.route('/admin/logout')
