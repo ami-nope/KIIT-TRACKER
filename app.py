@@ -1,5 +1,4 @@
 import gevent.monkey
-# Patch must happen before importing other modules
 gevent.monkey.patch_all()
 import gevent
 
@@ -8,12 +7,10 @@ from flask_cors import CORS
 import json
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
-import base64
 from werkzeug.middleware.proxy_fix import ProxyFix
 import threading
 import queue
 import time
-import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,18 +18,9 @@ app = Flask(__name__)
 app.config['WTF_CSRF_ENABLED'] = False
 app.secret_key = os.environ.get('FLASK_SECRET', 'dev-secret-change-this')
 
-# Health check for load balancers (fast & no locks)
-@app.route('/health')
-def health_check():
-    return 'OK', 200
-
-# Enable CORS for API routes (frontends on different origins)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
-
-# Make app proxy-aware (important on Render) so url_for + request.scheme honor X-Forwarded-* headers
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
-# Hosted environment session hardening with HTTPS-aware configuration
 RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL', '')
 ON_RENDER = bool(os.environ.get('RENDER') or RENDER_URL)
 IS_HTTPS = RENDER_URL.startswith('https://')
@@ -42,182 +30,76 @@ app.config.update(
     PREFERRED_URL_SCHEME='https' if IS_HTTPS else 'http'
 )
 
-# Lightweight runtime metrics
-APP_START_TS = time.time()
-REQUESTS_TOTAL = 0
-
-@app.before_request
-def _count_request():
-    # Lazy initialization on first request to ensure fast import
-    global _buses_cache
-    if not hasattr(app, '_is_initialized'):
-        _ensure_files_exist()
-        start_background_worker()
-        app._is_initialized = True
-    
-    # Skip noise from health checks optionally
-    global REQUESTS_TOTAL
-    REQUESTS_TOTAL += 1
-
+# ---------- file paths ----------
 BUSES_FILE = os.path.join(BASE_DIR, 'buses_location.json')
 LOCATIONS_FILE = os.path.join(BASE_DIR, 'locations.json')
 CREDENTIALS_FILE = os.path.join(BASE_DIR, 'credentials.json')
 
-def _ensure_files_exist():
-    # Ensure required files exist - moved to lazy init function
-    if not os.path.exists(BUSES_FILE):
-        with open(BUSES_FILE, 'w') as f:
-            json.dump({}, f)
-    if not os.path.exists(LOCATIONS_FILE):
-        with open(LOCATIONS_FILE, 'w') as f:
-            json.dump({"hostels": [], "classes": [], "routes": []}, f)
-    if not os.path.exists(CREDENTIALS_FILE):
-        with open(CREDENTIALS_FILE, 'w') as f:
-            json.dump({"admins": [], "institute_name": "INSTITUTE"}, f)
-
-
-_file_locks = {
-    'buses': threading.Lock(),
-    'locations': threading.Lock(),
-    'credentials': threading.Lock(),
-}
-
-def _lock_for(path: str):
-    if path == BUSES_FILE:
-        return _file_locks['buses']
-    if path == LOCATIONS_FILE:
-        return _file_locks['locations']
-    if path == CREDENTIALS_FILE:
-        return _file_locks['credentials']
-    # Fallback single lock for unknown
-    return threading.Lock()
-
-# Safe JSON helpers that handle concurrency via atomic replacement (on Linux/POSIX)
-# This allows us to REMOVE read locks entirely, which is the main bottleneck.
-# safe_save_json writes to a temp file and atomically renames it.
-# safe_load_json reads the file without a lock (it will get either old or new version, but not partial).
-
-def safe_load_json(path: str, default):
-    # No lock needed for atomic reads on updated files
+# ---------- simple JSON helpers ----------
+def load_json(path, default):
     try:
         with open(path, 'r') as f:
             return json.load(f)
-    except FileNotFoundError:
-        return default
     except Exception:
-        # If file is truly corrupted (rare with atomic writes), try to reset
-        try:
-            with open(path, 'w') as f:
-                json.dump(default, f)
-        except Exception:
-            pass
         return default
 
-def safe_save_json(path: str, data):
-    # Lock only ensures one writer at a time, doesn't block readers
-    lock = _lock_for(path)
-    with lock:
-        tmp_path = path + ".tmp"
-        try:
-            with open(tmp_path, 'w') as f:
-                json.dump(data, f, indent=2)
-                f.flush()
-                # fsync is extremely slow on cloud block storage; relying on OS flush is safer for responsiveness
-                # blocking fsync was causing worker timeouts
-                # if os.name != 'nt':
-                #    os.fsync(f.fileno())
-            
-            # Atomic replace taking Windows file locking into account
-            # Linux allows replacing open files; Windows raises PermissionError (OSError)
-            retries = 10 if os.name == 'nt' else 1
-            for i in range(retries):
-                try:
-                    os.replace(tmp_path, path)
-                    break
-                except OSError:
-                    if i == retries - 1:
-                        raise 
-                    time.sleep(0.02) # yield to reader
-        except Exception:
-            # Fallback if something fails
-            pass
-# Global variable, initialized lazily
-_buses_cache = None
-_locations_cache = None
-_credentials_cache = None
+def save_json(path, data):
+    try:
+        with open(path, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
 
-def get_buses_cache():
-    global _buses_cache
-    if _buses_cache is None:
-        try:
-            with open(BUSES_FILE, 'r') as _f:
-                _buses_cache = json.load(_f)
-        except Exception:
-            _buses_cache = {}
-    return _buses_cache
+def ensure_files():
+    if not os.path.exists(BUSES_FILE):
+        save_json(BUSES_FILE, {})
+    if not os.path.exists(LOCATIONS_FILE):
+        save_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    if not os.path.exists(CREDENTIALS_FILE):
+        save_json(CREDENTIALS_FILE, {"admins": [], "institute_name": "INSTITUTE"})
 
-def get_locations_cache():
-    global _locations_cache
-    if _locations_cache is None:
-        _locations_cache = safe_load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
-    return _locations_cache
-
-def get_credentials_cache():
-    global _credentials_cache
-    if _credentials_cache is None:
-        _credentials_cache = safe_load_json(CREDENTIALS_FILE, {"admins": [], "institute_name": "INSTITUTE"})
-    return _credentials_cache
-
+# ---------- in-memory caches ----------
+_buses = {}
 _buses_lock = threading.Lock()
-_worker_initialized = False
+_worker_started = False
 
-def start_background_worker():
-    global _worker_initialized
-    if _worker_initialized:
-        return
-    _worker_initialized = True
-    
-    # Ensure all caches are loaded in main thread before spawning worker
-    get_buses_cache()
-    get_locations_cache()
-    get_credentials_cache()
-    
-    threading.Thread(target=_sync_worker, daemon=True).start()
+APP_START_TS = time.time()
+REQUESTS_TOTAL = 0
+
+def _init_app():
+    global _buses, _worker_started
+    ensure_files()
+    _buses = load_json(BUSES_FILE, {})
+    if not _worker_started:
+        _worker_started = True
+        threading.Thread(target=_sync_worker, daemon=True).start()
+
+@app.before_request
+def _before():
+    global REQUESTS_TOTAL
+    if not hasattr(app, '_ready'):
+        _init_app()
+        app._ready = True
+    REQUESTS_TOTAL += 1
 
 def _sync_worker():
-    # Ensure cache is loaded before syncing
-    get_buses_cache()
-    
-    last_snapshot = None
+    last = None
     while True:
-        gevent.sleep(2) # Sync every 2 seconds
+        gevent.sleep(2)
         try:
-            # Snapshot for saving
             with _buses_lock:
-                # Use getter
-                current_snapshot = json.dumps(get_buses_cache(), sort_keys=True)
-            
-            # Only save if data changed to avoid disk I/O
-            if current_snapshot != last_snapshot:
-                # We need to save the dict, not the string, as safe_save_json dumps it
-                data_to_save = json.loads(current_snapshot)
-                
-                # Offload blocking file I/O to threadpool so main loop (greenlets) doesn't freeze
-                gevent.get_hub().threadpool.apply(safe_save_json, args=(BUSES_FILE, data_to_save))
-                
-                last_snapshot = current_snapshot
+                snap = json.dumps(_buses, sort_keys=True)
+            if snap != last:
+                save_json(BUSES_FILE, json.loads(snap))
+                last = snap
         except Exception:
             pass
 
-# Start background sync thread (daemon dies when app dies)
-# REMOVED global start: threading.Thread(target=_sync_worker, daemon=True).start()
-
-
-# === SSE subscribers ===
+# ---------- SSE ----------
 _subscribers_lock = threading.Lock()
-_subscribers = []  # list[queue.Queue]
+_subscribers = []
 
-def broadcast(payload: dict):
+def broadcast(payload):
     try:
         data = json.dumps(payload)
     except Exception:
@@ -227,30 +109,24 @@ def broadcast(payload: dict):
             try:
                 q.put_nowait(data)
             except Exception:
-                # Drop if queue is full or closed
                 pass
 
 @app.route('/events')
 def sse_events():
-    # Allow Render free tier fallback via env to disable SSE
     if os.environ.get('DISABLE_SSE', '').lower() in ('1', 'true', 'yes'):
         return Response('SSE disabled', status=503, mimetype='text/plain')
-    # Server-Sent Events endpoint
-    def event_stream():
+    def stream():
         q = queue.Queue(maxsize=100)
         with _subscribers_lock:
             _subscribers.append(q)
-        # Initial hello to avoid proxy buffering
         yield 'event: ping\ndata: "connected"\n\n'
         try:
             while True:
                 try:
-                    # Heartbeat interval configurable via env
-                    heartbeat = max(5, int(os.environ.get('SSE_HEARTBEAT_SEC', '20')))
-                    msg = q.get(timeout=heartbeat)
+                    hb = max(5, int(os.environ.get('SSE_HEARTBEAT_SEC', '20')))
+                    msg = q.get(timeout=hb)
                     yield f'data: {msg}\n\n'
                 except queue.Empty:
-                    # heartbeat to keep connection alive through proxies
                     yield 'event: ping\ndata: {}\n\n'
         finally:
             with _subscribers_lock:
@@ -258,22 +134,17 @@ def sse_events():
                     _subscribers.remove(q)
                 except ValueError:
                     pass
-    headers = {
-        'Cache-Control': 'no-cache',
-        'X-Accel-Buffering': 'no',  # disable buffering on some proxies
-        'Connection': 'keep-alive'
-    }
-    return Response(stream_with_context(event_stream()), mimetype='text/event-stream', headers=headers)
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no', 'Connection': 'keep-alive'})
 
-def load_crget_credentials_cache(
-    return safe_load_json(CREDENTIALS_FILE, {})
+# ---------- credentials helpers ----------
+def load_credentials():
+    return load_json(CREDENTIALS_FILE, {"admins": [], "institute_name": "INSTITUTE"})
 
-@app.route('/driver')
-def driver_view():
-    creds = load_credentials()
-    institute = creds.get('institute_name', 'INSTITUTE')
-    return render_template('driver.html', institute_name=institute)
+def save_credentials(data):
+    save_json(CREDENTIALS_FILE, data)
 
+# ---------- auth ----------
 def login_required(fn):
     from functools import wraps
     @wraps(fn)
@@ -283,163 +154,39 @@ def login_required(fn):
         return fn(*args, **kwargs)
     return wrapper
 
-    
-def save_credentials(data: dict):
-    global _credentials_cache
-    # Update cache
-    _credentials_cache = data
-    # Persist asynchronously/safely
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(CREDENTIALS_FILE, data))
-
-
-
-
+# ---------- page routes ----------
+@app.route('/health')
+def health_check():
+    return 'OK', 200
 
 @app.route('/')
 def student_view():
     creds = load_credentials()
-    institute = creds.get('institute_name', 'INSTITUTE')
-    return render_template('student.html', institute_name=institute)
+    return render_template('student.html', institute_name=creds.get('institute_name', 'INSTITUTE'))
+
+@app.route('/driver')
+def driver_view():
+    creds = load_credentials()
+    return render_template('driver.html', institute_name=creds.get('institute_name', 'INSTITUTE'))
 
 @app.route('/simulator')
 def simulator_view():
     creds = load_credentials()
-    institute = creds.get('institute_name', 'INSTITUTE')
-    return render_template('simulator.html', institute_name=institute)
-
- 
-@app.route('/api/metrics', methods=['GET'])
-def get_metrics():
-    creds = load_credentials()
-    # Default to 100 if not set
-    total_transports = int(creds.get('total_transports', 100))
-    return jsonify({ 'total_transports': total_transports })
-
- 
-@app.route('/api/metrics', methods=['POST'])
-@login_required
-def update_metrics():
-    data = request.json or {}
-    try:
-        total_transports = int(data.get('total_transports', None))
-    except (TypeError, ValueError):
-        return jsonify({ 'error': 'Invalid total_transports' }), 400
-    if total_transports is None or total_transports < 0:
-        return jsonify({ 'error': 'Provide non-negative total_transports' }), 400
-    creds = load_credentials()
-    creds['total_transports'] = total_transports
-    save_credentials(creds)
-    return jsonify({ 'status': 'success', 'total_transports': total_transports })
-
+    return render_template('simulator.html', institute_name=creds.get('institute_name', 'INSTITUTE'))
 
 @app.route('/admin')
 @login_required
 def admin_view():
     creds = load_credentials()
-    institute = creds.get('institute_name', 'INSTITUTE')
-    user = session.get('admin')
-    return render_template('admin.html', institute_name=institute, admin_user=user)
-
-@app.route('/admin/users')
-@login_required
-def admin_users():
-    creds = load_credentials()
-    users = []
-    # Admin users (support multiple accounts)
-    for adm in creds.get('admins', []):
-        users.append({
-            'type': 'Admin',
-            'username': adm.get('username', ''),
-            'password': '************' if adm.get('password_hash') else ''
-        })
-    # Student users (example: if you have a students list in credentials.json)
-    for student in creds.get('students', []):
-        users.append({
-            'type': 'Student',
-            'username': student.get('username', ''),
-            'password': '************' if student.get('password_hash') else ''
-        })
-    return jsonify({'users': users})
-
-
-@app.route('/admin/admins', methods=['GET'])
-@login_required
-def list_admins():
-    creds = load_credentials()
-    admins = [{'username': a.get('username', '')} for a in creds.get('admins', [])]
-    return jsonify({'admins': admins})
-
-
-@app.route('/admin/admins', methods=['POST'])
-@login_required
-def add_admin():
-    data = request.json or {}
-    username = (data.get('username', '') or '').strip()
-    password = (data.get('password', '') or '').strip()
-    pin = (data.get('pin', '') or '').strip()
-
-    if pin != '456123':
-        return jsonify({'error': 'Invalid pin'}), 400
-    if not username or not password:
-        return jsonify({'error': 'Provide username and password'}), 400
-
-    creds = load_credentials()
-    admins = creds.get('admins', [])
-    if any(a.get('username') == username for a in admins):
-        return jsonify({'error': 'Admin username already exists'}), 400
-
-    admins.append({'username': username, 'password_hash': generate_password_hash(password)})
-    creds['admins'] = admins
-    save_credentials(creds)
-    return jsonify({'status': 'success', 'username': username})
-
-
-@app.route('/admin/admins/<username>', methods=['DELETE'])
-@login_required
-def delete_admin(username):
-    creds = load_credentials()
-    admins = creds.get('admins', [])
-    before = len(admins)
-    admins = [a for a in admins if a.get('username') != username]
-    if len(admins) == before:
-        return jsonify({'error': 'Admin not found'}), 404
-    creds['admins'] = admins
-    save_credentials(creds)
-    if session.get('admin') == username:
-        session.pop('admin', None)
-    return jsonify({'status': 'success'})
-
-
-@app.route('/admin/admins/<username>/password', methods=['POST'])
-@login_required
-def change_admin_password(username):
-    data = request.json or {}
-    new_password = (data.get('password', '') or '').strip()
-    pin = (data.get('pin', '') or '').strip()
-
-    if pin != '456123':
-        return jsonify({'error': 'Invalid pin'}), 400
-    if not new_password:
-        return jsonify({'error': 'Provide new password'}), 400
-
-    creds = load_credentials()
-    admin = next((a for a in creds.get('admins', []) if a.get('username') == username), None)
-    if not admin:
-        return jsonify({'error': 'Admin not found'}), 404
-
-    admin['password_hash'] = generate_password_hash(new_password)
-    save_credentials(creds)
-    return jsonify({'status': 'success'})
-
+    return render_template('admin.html', institute_name=creds.get('institute_name', 'INSTITUTE'), admin_user=session.get('admin'))
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     try:
         creds = load_credentials()
-        
         if request.method == 'GET':
-            has_admins = bool(creds.get('admins'))
-            return render_template('admin_login.html', credentials_exist=has_admins, institute_name=creds.get('institute_name', 'INSTITUTE'))
+            return render_template('admin_login.html', credentials_exist=bool(creds.get('admins')),
+                                   institute_name=creds.get('institute_name', 'INSTITUTE'))
 
         data = request.form
         action = data.get('action')
@@ -448,15 +195,12 @@ def admin_login():
         password = data.get('password', '').strip()
         error_text = None
 
-        # Ensure admins list exists
         if 'admins' not in creds:
             creds['admins'] = []
 
         if action == 'signup':
-            signup_pin = (data.get('signup_pin', '') or '').strip()
-            # Require correct pin 456123 for admin account creation
-            valid_pin = signup_pin == '456123'
-            if not valid_pin:
+            pin = (data.get('signup_pin', '') or '').strip()
+            if pin != '456123':
                 error_text = "Invalid signup pin."
             elif not username or not password:
                 error_text = "Provide username and password."
@@ -464,22 +208,15 @@ def admin_login():
                 error_text = "Admin username already exists."
             else:
                 creds['institute_name'] = institute or creds.get('institute_name', 'INSTITUTE')
-                creds['pin_hash'] = generate_password_hash('456123')
-                creds['admins'].append({
-                    'username': username,
-                    'password_hash': generate_password_hash(password)
-                })
+                creds['admins'].append({'username': username, 'password_hash': generate_password_hash(password)})
                 save_credentials(creds)
                 session['admin'] = username
                 return redirect(url_for('admin_view'))
-            has_admins = bool(creds.get('admins'))
-            return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
 
         elif action == 'login':
             if not creds.get('admins'):
                 error_text = "No admin accounts exist. Please signup first."
             else:
-                # Find matching admin
                 admin = next((a for a in creds['admins'] if a.get('username') == username), None)
                 if not admin:
                     error_text = "Invalid username."
@@ -488,127 +225,129 @@ def admin_login():
                     return redirect(url_for('admin_view'))
                 else:
                     error_text = "Invalid password."
-            has_admins = bool(creds.get('admins'))
-            return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
+        else:
+            error_text = "Invalid action."
 
-        has_admins = bool(creds.get('admins'))
-        return render_template('admin_login.html', credentials_exist=has_admins, institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text="Invalid action.")
+        return render_template('admin_login.html', credentials_exist=bool(creds.get('admins')),
+                               institute_name=institute or creds.get('institute_name', 'INSTITUTE'), error_text=error_text)
     except Exception as e:
-        # Failsafe for debugging
         import traceback
         traceback.print_exc()
-        return f"Server Error (Admin Login): {str(e)}", 500
-
+        return f"Server Error: {str(e)}", 500
 
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin', None)
     return redirect(url_for('admin_login'))
 
+# ---------- admin user management ----------
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    creds = load_credentials()
+    users = []
+    for adm in creds.get('admins', []):
+        users.append({'type': 'Admin', 'username': adm.get('username', ''), 'password': '************'})
+    for s in creds.get('students', []):
+        users.append({'type': 'Student', 'username': s.get('username', ''), 'password': '************'})
+    return jsonify({'users': users})
 
+@app.route('/admin/admins', methods=['GET'])
+@login_required
+def list_admins():
+    creds = load_credentials()
+    return jsonify({'admins': [{'username': a.get('username', '')} for a in creds.get('admins', [])]})
 
+@app.route('/admin/admins', methods=['POST'])
+@login_required
+def add_admin():
+    data = request.json or {}
+    username = (data.get('username', '') or '').strip()
+    password = (data.get('password', '') or '').strip()
+    pin = (data.get('pin', '') or '').strip()
+    if pin != '456123':
+        return jsonify({'error': 'Invalid pin'}), 400
+    if not username or not password:
+        return jsonify({'error': 'Provide username and password'}), 400
+    creds = load_credentials()
+    if any(a.get('username') == username for a in creds.get('admins', [])):
+        return jsonify({'error': 'Admin username already exists'}), 400
+    creds.setdefault('admins', []).append({'username': username, 'password_hash': generate_password_hash(password)})
+    save_credentials(creds)
+    return jsonify({'status': 'success', 'username': username})
 
+@app.route('/admin/admins/<username>', methods=['DELETE'])
+@login_required
+def delete_admin(username):
+    creds = load_credentials()
+    admins = creds.get('admins', [])
+    new = [a for a in admins if a.get('username') != username]
+    if len(new) == len(admins):
+        return jsonify({'error': 'Admin not found'}), 404
+    creds['admins'] = new
+    save_credentials(creds)
+    if session.get('admin') == username:
+        session.pop('admin', None)
+    return jsonify({'status': 'success'})
 
+@app.route('/admin/admins/<username>/password', methods=['POST'])
+@login_required
+def change_admin_password(username):
+    data = request.json or {}
+    new_pw = (data.get('password', '') or '').strip()
+    pin = (data.get('pin', '') or '').strip()
+    if pin != '456123':
+        return jsonify({'error': 'Invalid pin'}), 400
+    if not new_pw:
+        return jsonify({'error': 'Provide new password'}), 400
+    creds = load_credentials()
+    admin = next((a for a in creds.get('admins', []) if a.get('username') == username), None)
+    if not admin:
+        return jsonify({'error': 'Admin not found'}), 404
+    admin['password_hash'] = generate_password_hash(new_pw)
+    save_credentials(creds)
+    return jsonify({'status': 'success'})
 
+# ---------- metrics ----------
+@app.route('/api/metrics', methods=['GET'])
+def get_metrics():
+    creds = load_credentials()
+    return jsonify({'total_transports': int(creds.get('total_transports', 100))})
 
+@app.route('/api/metrics', methods=['POST'])
+@login_required
+def update_metrics():
+    data = request.json or {}
+    try:
+        total = int(data.get('total_transports'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid total_transports'}), 400
+    if total < 0:
+        return jsonify({'error': 'Provide non-negative total_transports'}), 400
+    creds = load_credentials()
+    creds['total_transports'] = total
+    save_credentials(creds)
+    return jsonify({'status': 'success', 'total_transports': total})
 
-
-
-
-
-    
-
+# ---------- bus APIs ----------
 @app.route('/api/buses', methods=['GET'])
 def get_all_buses():
-    return jsonify(_buses_cache)
-
-# Removed duplicate /simulator route to avoid handler override
-
+    return jsonify(_buses)
 
 @app.route('/api/buses/clear', methods=['POST'])
 def clear_all_buses():
-    global _buses_cache
+    global _buses
     with _buses_lock:
-        _buses_cache = {}
-    # Clear all bus entries by resetting the JSON file
-    safe_save_json(BUSES_FILE, {})
-    # Broadcast clear event
+        _buses = {}
+    save_json(BUSES_FILE, {})
     try:
-        broadcast({ 'type': 'buses_clear' })
+        broadcast({'type': 'buses_clear'})
     except Exception:
         pass
-    return jsonify({'status': 'success'})
-get_locations_cache()
-    return jsonify(locations)
-
-@app.route('/api/hostels', methods=['GET'])
-def get_hostels():
-    locations = get_locations_cache()
-    return jsonify(locations.get('hostels', []))
-
-@app.route('/api/classes', methods=['GET'])
-def get_classes():
-    locations = get_locations_cache()
-    return jsonify(locations.get('classes', []))
-
-@app.route('/api/routes', methods=['GET'])
-def get_routes():
-    locations = get_locations_cache()
-    return jsonify(locations.get('routes', []))
-
-@app.route('/api/route', methods=['POST'])
-def create_route():
-    data = request.json
-    locations = get_locations_cache(
-def create_route():
-    data = request.json
-    locations = safe_load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
-    
-    route = {
-        'id': data.get('id', f"route_{int(len(locations.get('routes', [])) + 1)}"),
-        'name': data['name'],
-        'waypoints': data['waypoints'],
-        'stops': data.get('stops', []),  # Add stop names
-        'color': data.get('color', '#FF5722')
-    }
-    
-    # Check if updating existing route
-    routes = locations.get('routes', [])
-    existing_idx = next((i for i, r in enumerate(routes) if r['id'] == route['id']), -1)
-    
-    if existing_idx >= 0:
-        routes[existing_idx] = route
-    else:
-        routes.append(route)
-    # Update cache implicitly (refers to same object) but good to be explicit if structure changes
-    global _locations_cache
-    _locations_cache = locations
-    
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(LOCATIONS_FILE, locations))
-    
-    return jsonify({'status': 'success', 'route': route})
-
-@app.route('/api/route/<route_id>', methods=['DELETE'])
-def delete_route(route_id):
-    locations = get_locations_cache()
-    
-    routes = locations.get('routes', [])
-    locations['routes'] = [r for r in routes if r['id'] != route_id]
-    
-    # Update cache
-    global _locations_cache
-    _locations_cache = locations
-    
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(LOCATIONS_FILE, locations)
-    locations['routes'] = [r for r in routes if r['id'] != route_id]
-    
-    safe_save_json(LOCATIONS_FILE, locations)
-    
     return jsonify({'status': 'success'})
 
 @app.route('/api/bus/<int:bus_number>', methods=['POST'])
 def update_bus_location(bus_number):
-    # Accept JSON or form; validate required fields
     raw = request.get_json(silent=True) or request.form.to_dict() or {}
     try:
         lat = float(raw.get('lat'))
@@ -616,27 +355,14 @@ def update_bus_location(bus_number):
     except (TypeError, ValueError):
         return jsonify({'error': 'Provide numeric lat and lng'}), 400
     last_update = raw.get('lastUpdate') or time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-
-    # Update in-memory cache directly
     bus_id = str(bus_number)
     with _buses_lock:
-        existing = _buses_cache.get(bus_id, {})
+        existing = _buses.get(bus_id, {})
         route_id = raw.get('routeId', existing.get('routeId'))
-
-        _buses_cache[bus_id] = {
-            'lat': lat,
-            'lng': lng,
-            'lastUpdate': last_update,
-            'routeId': route_id
-        }
-        # Copy for broadcast
-        current_data = _buses_cache[bus_id]
-
-    # No synchronous disk write here - handled by background worker
-    
-    # Broadcast bus update
+        _buses[bus_id] = {'lat': lat, 'lng': lng, 'lastUpdate': last_update, 'routeId': route_id}
+        current_data = _buses[bus_id]
     try:
-        broadcast({ 'type': 'bus_update', 'bus': bus_id, 'data': current_data })
+        broadcast({'type': 'bus_update', 'bus': bus_id, 'data': current_data})
     except Exception:
         pass
     return jsonify({'status': 'success', 'bus': bus_number})
@@ -645,64 +371,11 @@ def update_bus_location(bus_number):
 def stop_bus(bus_number):
     bus_id = str(bus_number)
     with _buses_lock:
-        if bus_id in _buses_cache:
-            del _buses_cache[bus_id]
-    
-    # Broadcast bus stop
+        _buses.pop(bus_id, None)
     try:
-        broadcasget_locations_cache()
-    
-    hostel = {
-        'id': f"hostel_{len(locations.get('hostels', [])) + 1}",
-        'name': data['name'],
-        'lat': data['lat'],
-        'lng': data['lng'],
-        'capacity': data.get('capacity', 100)
-    }
-    
-    locations['hostels'].append(hostel)
-    
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(LOCATIONS_FILE, locations))
-    
-    return jsonify({'status': 'success', 'hostel': hostel})
-
-@app.route('/api/hostel/<hostel_id>', methods=['DELETE'])
-def delete_hostel(hostel_id):
-    locations = get_locations_cache()
-    
-    locations['hostels'] = [h for h in locations.get('hostels', []) if h['id'] != hostel_id]
-    
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(LOCATIONS_FILE, locations))
-    
-    return jsonify({'status': 'success'})
-
-@app.route('/api/class', methods=['POST'])
-def create_class():
-    data = request.json
-    locations = get_locations_cache()
-    
-    cls = {
-        'id': f"class_{len(locations.get('classes', [])) + 1}",
-        'name': data['name'],
-        'lat': data['lat'],
-        'lng': data['lng'],
-        'department': data.get('department', 'Unknown')
-    }
-    
-    locations['classes'].append(cls)
-    
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(LOCATIONS_FILE, locations))
-    
-    return jsonify({'status': 'success', 'class': cls})
-
-@app.route('/api/class/<class_id>', methods=['DELETE'])
-def delete_class(class_id):
-    locations = get_locations_cache()
-    
-    locations['classes'] = [c for c in locations.get('classes', []) if c['id'] != class_id]
-    
-    gevent.get_hub().threadpool.apply(safe_save_json, args=(LOCATIONS_FILE, locations))
-    
+        broadcast({'type': 'bus_stop', 'bus': bus_id})
+    except Exception:
+        pass
     return jsonify({'status': 'success'})
 
 @app.route('/api/bus/<int:bus_number>/route', methods=['POST'])
@@ -710,62 +383,130 @@ def set_bus_route(bus_number):
     data = request.get_json(silent=True) or {}
     route_id = data.get('routeId')
     bus_id = str(bus_number)
-    
     with _buses_lock:
-        if bus_id in _buses_cache:
-            _buses_cache[bus_id]['routeId'] = route_id
+        if bus_id in _buses:
+            _buses[bus_id]['routeId'] = route_id
         else:
-            _buses_cache[bus_id] = {
-                'lat': 0,
-                'lng': 0,
-                'lastUpdate': '',
-                'routeId': route_id
-            }
-    
-    # Broadcast route assignment
+            _buses[bus_id] = {'lat': 0, 'lng': 0, 'lastUpdate': '', 'routeId': route_id}
     try:
-        broadcast({ 'type': 'route_set', 'bus': bus_id, 'routeId': route_id })
+        broadcast({'type': 'route_set', 'bus': bus_id, 'routeId': route_id})
     except Exception:
         pass
     return jsonify({'status': 'success'})
 
 @app.route('/api/bus-routes', methods=['GET'])
 def get_bus_routes():
-    result = {}
     with _buses_lock:
-        for bus_num, bus_info in _buses_cache.items():
-            resget_locations_cache(
-    
+        result = {k: v.get('routeId') for k, v in _buses.items()}
     return jsonify(result)
 
-# Health and status endpoints for debugging in production
+# ---------- location APIs ----------
+@app.route('/api/locations', methods=['GET'])
+def get_locations():
+    return jsonify(load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []}))
+
+@app.route('/api/hostels', methods=['GET'])
+def get_hostels():
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    return jsonify(locs.get('hostels', []))
+
+@app.route('/api/classes', methods=['GET'])
+def get_classes():
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    return jsonify(locs.get('classes', []))
+
+@app.route('/api/routes', methods=['GET'])
+def get_routes():
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    return jsonify(locs.get('routes', []))
+
+@app.route('/api/route', methods=['POST'])
+def create_route():
+    data = request.json
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    route = {
+        'id': data.get('id', f"route_{len(locs.get('routes', [])) + 1}"),
+        'name': data['name'],
+        'waypoints': data['waypoints'],
+        'stops': data.get('stops', []),
+        'color': data.get('color', '#FF5722')
+    }
+    routes = locs.get('routes', [])
+    idx = next((i for i, r in enumerate(routes) if r['id'] == route['id']), -1)
+    if idx >= 0:
+        routes[idx] = route
+    else:
+        routes.append(route)
+    locs['routes'] = routes
+    save_json(LOCATIONS_FILE, locs)
+    return jsonify({'status': 'success', 'route': route})
+
+@app.route('/api/route/<route_id>', methods=['DELETE'])
+def delete_route(route_id):
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    locs['routes'] = [r for r in locs.get('routes', []) if r['id'] != route_id]
+    save_json(LOCATIONS_FILE, locs)
+    return jsonify({'status': 'success'})
+
+@app.route('/api/hostel', methods=['POST'])
+def create_hostel():
+    data = request.json
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    hostel = {
+        'id': f"hostel_{len(locs.get('hostels', [])) + 1}",
+        'name': data['name'],
+        'lat': data['lat'],
+        'lng': data['lng'],
+        'capacity': data.get('capacity', 100)
+    }
+    locs['hostels'].append(hostel)
+    save_json(LOCATIONS_FILE, locs)
+    return jsonify({'status': 'success', 'hostel': hostel})
+
+@app.route('/api/hostel/<hostel_id>', methods=['DELETE'])
+def delete_hostel(hostel_id):
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    locs['hostels'] = [h for h in locs.get('hostels', []) if h['id'] != hostel_id]
+    save_json(LOCATIONS_FILE, locs)
+    return jsonify({'status': 'success'})
+
+@app.route('/api/class', methods=['POST'])
+def create_class():
+    data = request.json
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    cls = {
+        'id': f"class_{len(locs.get('classes', [])) + 1}",
+        'name': data['name'],
+        'lat': data['lat'],
+        'lng': data['lng'],
+        'department': data.get('department', 'Unknown')
+    }
+    locs['classes'].append(cls)
+    save_json(LOCATIONS_FILE, locs)
+    return jsonify({'status': 'success', 'class': cls})
+
+@app.route('/api/class/<class_id>', methods=['DELETE'])
+def delete_class(class_id):
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
+    locs['classes'] = [c for c in locs.get('classes', []) if c['id'] != class_id]
+    save_json(LOCATIONS_FILE, locs)
+    return jsonify({'status': 'success'})
+
+# ---------- health / status ----------
 @app.route('/healthz')
 def healthz():
-    try:
-        locs = get_locations_cache()
-        ok = isinstance(_buses_cache, dict) and isinstance(locs, dict)
-        return jsonify({
-            'status': 'ok' if ok else 'degraded',
-            'uptime_sec': int(time.time() - APP_START_TS),
-            'sse_clients': len(_subscribers),
-            'buses_count': len(_buses_cache),
-            'routes_count': len(locs.get('routes', [])),
-        }), 200 if ok else 503
-    except Exception:
-        return jsonify({ 'status': 'error' }), 500
+    return jsonify({'status': 'ok', 'uptime_sec': int(time.time() - APP_START_TS)}), 200
 
 @app.route('/status')
 def status():
-    locs = get_locations_cache()
+    locs = load_json(LOCATIONS_FILE, {"hostels": [], "classes": [], "routes": []})
     return jsonify({
         'uptime_sec': int(time.time() - APP_START_TS),
         'requests_total': REQUESTS_TOTAL,
         'sse_clients': len(_subscribers),
-        'buses_count': len(_buses_cache),
+        'buses_count': len(_buses),
         'routes_count': len(locs.get('routes', [])),
         'on_render': ON_RENDER,
-        'heartbeat_sec': max(5, int(os.environ.get('SSE_HEARTBEAT_SEC', '20'))),
-        'disable_sse': os.environ.get('DISABLE_SSE', '').lower() in ('1','true','yes')
     })
 
 if __name__ == '__main__':
