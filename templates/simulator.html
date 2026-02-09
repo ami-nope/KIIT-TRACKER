@@ -233,7 +233,12 @@ navigator.geolocation.getCurrentPosition((pos) => {
 
 // --- Input ---
 const keys = {};
-document.addEventListener("keydown", e => { keys[e.key.toLowerCase()] = true; e.preventDefault(); });
+document.addEventListener("keydown", e => {
+  // Don't capture keys when typing in an input field
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  keys[e.key.toLowerCase()] = true;
+  if (['w','a','s','d',' '].includes(e.key.toLowerCase()) || e.key === 'Shift') e.preventDefault();
+});
 document.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
 // --- Animation Loop ---

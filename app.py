@@ -382,8 +382,7 @@ def set_bus_route(bus_number):
     with _buses_lock:
         if bus_id in _buses:
             _buses[bus_id]['routeId'] = route_id
-        else:
-            _buses[bus_id] = {'lat': 0, 'lng': 0, 'lastUpdate': '', 'routeId': route_id}
+        # Don't create a bus entry just for route assignment
     try:
         broadcast({'type': 'route_set', 'bus': bus_id, 'routeId': route_id})
     except Exception:

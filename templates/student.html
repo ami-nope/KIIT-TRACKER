@@ -927,6 +927,10 @@
                             delete busLastStopIdx[busNum];
                             delete busCurrentStop[busNum];
                             const m = busMarkers[busNum]; if(m){ try{ map.removeLayer(m); }catch(e){} delete busMarkers[busNum]; }
+                        } else if(msg.type === 'route_set'){
+                            const busNum = String(msg.bus);
+                            if(msg.routeId != null) busRouteMap[busNum] = msg.routeId;
+                            if(latestBuses[busNum]) latestBuses[busNum].routeId = msg.routeId;
                         } else if(msg.type === 'buses_clear'){
                             latestBuses = {};
                             Object.values(busMarkers).forEach(m=>{ try{ map.removeLayer(m); }catch(e){} }); busMarkers = {};
