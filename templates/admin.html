@@ -46,6 +46,78 @@
         .instruction-box { background:rgba(102,126,234,0.1); padding:12px; border-radius:6px; border:1px solid rgba(102,126,234,0.2); margin-bottom:14px; font-size:13px; line-height:1.5 }
         .instruction-main { font-size:14px; font-weight:600; color:#667eea; margin-bottom:4px }
         .instruction-sub { color:#9aa4b2; margin-top:2px }
+        .draw-mode-hint { margin-top:6px; font-size:11px; color:#9aa4b2 }
+        .draw-mode-hint kbd {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .stop-radius-wrap {
+            margin-top: 8px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(102,126,234,0.22);
+            background: rgba(102,126,234,0.06);
+        }
+        .stop-radius-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #c7d2fe;
+            user-select: none;
+        }
+        .stop-radius-head input[type=checkbox] {
+            width: 14px;
+            height: 14px;
+            accent-color: #667eea;
+            cursor: pointer;
+        }
+        .stop-radius-head .value {
+            margin-left: auto;
+            font-size: 10px;
+            color: #dbe3ff;
+            border: 1px solid rgba(102,126,234,0.36);
+            border-radius: 999px;
+            padding: 2px 7px;
+            background: rgba(102,126,234,0.18);
+        }
+        .stop-radius-controls {
+            margin-top: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .stop-radius-controls.visible { display: flex; }
+        .stop-radius-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stop-radius-row input[type=range] {
+            flex: 1;
+            min-width: 0;
+        }
+        .stop-radius-row .meter {
+            min-width: 54px;
+            text-align: right;
+            font-size: 11px;
+            color: #9aa4b2;
+        }
+        .stop-radius-row input[type=number] {
+            flex: 1;
+            min-width: 0;
+            font-size: 12px;
+            padding: 6px 8px;
+        }
+        .stop-radius-row button {
+            padding: 6px 10px;
+            font-size: 11px;
+            border-radius: 8px;
+        }
         
         .stops-list { max-height:450px; overflow-y:auto; background:#0d1117; border-radius:6px; padding:10px }
         .stop-item { padding:10px; background:#07101a; border-radius:6px; margin-bottom:8px; border-left:4px solid; display:flex; gap:8px; align-items:center; font-size:13px }
@@ -82,7 +154,30 @@
         .route-info { font-size:12px; color:#9aa4b2; margin-bottom:8px }
         .route-actions { display:flex; gap:6px }
         .route-actions button { flex:1; font-size:12px; padding:6px }
-        
+        .perf-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:14px }
+        .perf-card {
+            background:#0f0f23;
+            border:1px solid rgba(255,255,255,0.06);
+            border-radius:10px;
+            padding:12px;
+        }
+        .perf-k { font-size:11px; color:#9aa4b2; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em }
+        .perf-v { font-size:16px; font-weight:600; color:#e6eef8 }
+        .perf-v.small { font-size:13px; font-weight:500; color:#c8d2e0 }
+        .perf-two-col { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px }
+        @media (max-width:900px) { .perf-two-col { grid-template-columns:1fr; } }
+        .audit-wrap {
+            background:#0f0f23;
+            border:1px solid rgba(255,255,255,0.06);
+            border-radius:10px;
+            padding:10px;
+        }
+        .audit-table-wrap { max-height:320px; overflow:auto; border-radius:8px; }
+        #perfAuditTable { margin-top:0; font-size:12px; }
+        #perfAuditTable td { font-size:12px; color:#c6d0df; }
+        #perfAuditTable .status-ok { color:#34d399; font-weight:600; }
+        #perfAuditTable .status-failed, #perfAuditTable .status-error { color:#ff7b8a; font-weight:600; }
+
         cursor-info { font-size:11px; color:#667eea; text-align:center; margin-top:8px; display:block }
     </style>
 </head>
@@ -119,6 +214,7 @@
             <div class="tab" data-tab="routes"><span class="icon">🗺️</span> Create Route</div>
             <div class="tab active" data-tab="buses"><span class="icon">🚌</span> Manage Transports</div>
             <div class="tab" data-tab="buildings"><span class="icon">🏠</span> Buildings</div>
+            <div class="tab" data-tab="serverPerf"><span class="icon">⚡</span> Server Performance</div>
         </div>
         <div id="usersSection" style="display:none;background:#07101a;padding:18px;border-radius:8px;margin-bottom:18px">
             <h2 style="color:#34d399">All Users</h2>
@@ -302,6 +398,34 @@
                             </select>
                         </div>
 
+                        <div class="field-group">
+                            <label class="field-label">Draw Mode</label>
+                            <select id="drawMode" style="width:100%">
+                                <option value="curve" selected>Curve (3+ points)</option>
+                                <option value="straight">Straight (start + end)</option>
+                                <option value="freehand">Freehand (drag path)</option>
+                            </select>
+                            <div class="draw-mode-hint">Press <kbd>Esc</kbd> to finish drawing and lock end stop.</div>
+                        </div>
+
+                        <div class="field-group stop-radius-wrap">
+                            <label class="stop-radius-head">
+                                <input type="checkbox" id="showStopRadius">
+                                <span>Show Stop Radius Overlay</span>
+                                <span class="value" id="stopRadiusValue">80 m</span>
+                            </label>
+                            <div class="stop-radius-controls" id="stopRadiusControls">
+                                <div class="stop-radius-row">
+                                    <input type="range" id="stopRadiusSlider" min="10" max="300" step="1" value="80">
+                                    <span class="meter" id="stopRadiusSliderValue">80 m</span>
+                                </div>
+                                <div class="stop-radius-row">
+                                    <input type="number" id="stopRadiusCustom" min="1" step="1" placeholder="Custom meters (no limit)">
+                                    <button type="button" id="applyStopRadiusBtn">Apply</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Stops List -->
                         <div class="field-group">
                             <label class="field-label">Stops (<span id="stopCount">0</span>)</label>
@@ -379,6 +503,125 @@
                 </div>
             </div>
         </div>
+
+        <!-- SERVER PERFORMANCE TAB -->
+        <div id="serverPerf" class="tab-content">
+            <div class="controls" style="justify-content:space-between; margin-bottom:14px">
+                <div class="small">Live server telemetry and admin audit logs</div>
+                <div>
+                    <button id="perfExportMdBtn">Export .md</button>
+                    <button id="perfExportTxtBtn">Export .txt</button>
+                    <button id="perfRefreshBtn">Refresh</button>
+                </div>
+            </div>
+
+            <div class="perf-grid">
+                <div class="perf-card">
+                    <div class="perf-k">Uptime</div>
+                    <div class="perf-v" id="perfUptime">--</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-k">RAM (Process / System)</div>
+                    <div class="perf-v" id="perfRam">--</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-k">CPU (Process)</div>
+                    <div class="perf-v" id="perfCpu">--</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-k">Bandwidth In</div>
+                    <div class="perf-v" id="perfBandwidthIn">--</div>
+                    <div class="perf-v small" id="perfBandwidthInRate">--</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-k">Bandwidth Out</div>
+                    <div class="perf-v" id="perfBandwidthOut">--</div>
+                    <div class="perf-v small" id="perfBandwidthOutRate">--</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-k">Requests</div>
+                    <div class="perf-v" id="perfRequests">--</div>
+                </div>
+                <div class="perf-card">
+                    <div class="perf-k">SSE Clients</div>
+                    <div class="perf-v" id="perfSseClients">--</div>
+                </div>
+            </div>
+
+            <div class="perf-two-col">
+                <div class="audit-wrap">
+                    <h3 style="margin:0 0 10px 0; font-size:14px">Admin Login Info</h3>
+                    <div class="perf-grid" style="margin-bottom:0">
+                        <div class="perf-card">
+                            <div class="perf-k">Current Admin</div>
+                            <div class="perf-v" id="perfCurrentAdmin">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Admin Accounts</div>
+                            <div class="perf-v" id="perfAdminCount">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Successful Logins</div>
+                            <div class="perf-v" id="perfLoginSuccess">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Failed Logins</div>
+                            <div class="perf-v" id="perfLoginFailed">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Last Successful Login</div>
+                            <div class="perf-v small" id="perfLastLoginSuccess">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Last Failed Login</div>
+                            <div class="perf-v small" id="perfLastLoginFailed">--</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="audit-wrap">
+                    <h3 style="margin:0 0 10px 0; font-size:14px">Server Snapshot</h3>
+                    <div class="perf-grid" style="margin-bottom:0">
+                        <div class="perf-card">
+                            <div class="perf-k">Transports</div>
+                            <div class="perf-v" id="perfBusesCount">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Routes</div>
+                            <div class="perf-v" id="perfRoutesCount">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Hostels</div>
+                            <div class="perf-v" id="perfHostelsCount">--</div>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-k">Classes</div>
+                            <div class="perf-v" id="perfClassesCount">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="audit-wrap">
+                <h3 style="margin:0 0 10px 0; font-size:14px">Audit Log</h3>
+                <div class="audit-table-wrap">
+                    <table id="perfAuditTable">
+                        <thead>
+                            <tr>
+                                <th>Time (UTC)</th>
+                                <th>Event</th>
+                                <th>User</th>
+                                <th>Status</th>
+                                <th>IP</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="perfAuditRows">
+                            <tr><td colspan="6" class="empty">No audit logs yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -388,7 +631,18 @@
         let editingRouteId = null;
         let routeMap = null;
         let routeMarkers = [];
+        let routeLine = null;
+        let stopRadiusLayers = [];
         let mapMode = 'start'; // 'start' or 'stops'
+        let drawMode = 'curve'; // 'straight' | 'curve' | 'freehand'
+        let isFreehandDrawing = false;
+        let freehandLastPoint = null;
+        let suppressNextClick = false;
+        const FREEHAND_MIN_POINT_M = 8;
+        let stopRadiusVisible = false;
+        let stopRadiusMeters = 80;
+        let renderQueued = false;
+        let renderToken = 0;
         
         let buildingsMap = null;
         let buildingMarkers = {};
@@ -396,6 +650,157 @@
         let pendingHostelCapacity = null;
         let pendingClassName = null;
         let pendingClassDept = null;
+        let perfAutoRefreshId = null;
+
+        function isTabActive(tabId) {
+            const el = document.getElementById(tabId);
+            return !!(el && el.classList.contains('active'));
+        }
+
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = (value === null || value === undefined || value === '') ? '--' : String(value);
+        }
+
+        function formatBytes(bytes) {
+            const v = Number(bytes) || 0;
+            if (v < 1024) return `${v} B`;
+            if (v < 1024 * 1024) return `${(v / 1024).toFixed(2)} KB`;
+            if (v < 1024 * 1024 * 1024) return `${(v / (1024 * 1024)).toFixed(2)} MB`;
+            return `${(v / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+        }
+
+        function formatKbps(v) {
+            const n = Number(v) || 0;
+            return `${n.toFixed(2)} kbps`;
+        }
+
+        function formatPercent(v) {
+            const n = Number(v);
+            if (!Number.isFinite(n)) return '--';
+            return `${n.toFixed(1)}%`;
+        }
+
+        function formatUptime(seconds) {
+            const sec = Math.max(0, Number(seconds) || 0);
+            const d = Math.floor(sec / 86400);
+            const h = Math.floor((sec % 86400) / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
+            if (h > 0) return `${h}h ${m}m ${s}s`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        }
+
+        function formatIsoUtc(iso) {
+            if (!iso) return '--';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return iso;
+            const pad = (v) => String(v).padStart(2, '0');
+            const dd = pad(d.getUTCDate());
+            const mm = pad(d.getUTCMonth() + 1);
+            const yy = String(d.getUTCFullYear()).slice(-2);
+            const hh = pad(d.getUTCHours());
+            const min = pad(d.getUTCMinutes());
+            const ss = pad(d.getUTCSeconds());
+            return `${dd}/${mm}/${yy} ${hh}/${min}/${ss}`;
+        }
+
+        function renderPerfAuditRows(logs) {
+            const tbody = document.getElementById('perfAuditRows');
+            if (!tbody) return;
+            const rows = Array.isArray(logs) ? logs : [];
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty">No audit logs yet</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map((entry) => {
+                const status = String(entry && entry.status ? entry.status : '').toLowerCase();
+                const statusClass = (status === 'success' || status === 'ok') ? 'status-ok' : `status-${status || 'failed'}`;
+                return `<tr>
+                    <td>${formatIsoUtc(entry.ts)}</td>
+                    <td>${entry.event || '--'}</td>
+                    <td>${entry.username || '--'}</td>
+                    <td class="${statusClass}">${entry.status || '--'}</td>
+                    <td>${entry.ip || '--'}</td>
+                    <td>${entry.details || '--'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function loadServerPerformance() {
+            try {
+                const res = await fetch('/admin/performance', { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                setText('perfUptime', formatUptime(data.uptime_sec));
+                const processRam = data.memory && data.memory.process_rss_mb != null ? `${data.memory.process_rss_mb} MB` : '--';
+                const systemRam = data.memory && data.memory.system_total_mb != null ? `${data.memory.system_total_mb} MB` : '--';
+                const systemRamUsed = data.memory && data.memory.system_used_mb != null ? `${data.memory.system_used_mb} MB` : null;
+                setText('perfRam', systemRamUsed ? `${processRam} / ${systemRamUsed} of ${systemRam}` : `${processRam} / ${systemRam}`);
+                const cpuPercent = data.cpu && data.cpu.process_percent != null ? formatPercent(data.cpu.process_percent) : '--';
+                const cpuCores = data.cpu && data.cpu.cores != null ? ` (${data.cpu.cores} cores)` : '';
+                setText('perfCpu', `${cpuPercent}${cpuCores}`);
+                setText('perfBandwidthIn', formatBytes(data.bandwidth && data.bandwidth.in_bytes));
+                setText('perfBandwidthOut', formatBytes(data.bandwidth && data.bandwidth.out_bytes));
+                setText('perfBandwidthInRate', formatKbps(data.bandwidth && data.bandwidth.avg_in_kbps));
+                setText('perfBandwidthOutRate', formatKbps(data.bandwidth && data.bandwidth.avg_out_kbps));
+                setText('perfRequests', data.requests_total);
+                setText('perfSseClients', data.sse_clients);
+                setText('perfCurrentAdmin', data.admin && data.admin.current_admin);
+                setText('perfAdminCount', data.admin && data.admin.admins_count);
+                setText('perfLoginSuccess', data.admin && data.admin.successful_logins);
+                setText('perfLoginFailed', data.admin && data.admin.failed_logins);
+                setText('perfLastLoginSuccess', formatIsoUtc(data.admin && data.admin.last_success_login));
+                setText('perfLastLoginFailed', formatIsoUtc(data.admin && data.admin.last_failed_login));
+                setText('perfBusesCount', data.buses_count);
+                setText('perfRoutesCount', data.routes_count);
+                setText('perfHostelsCount', data.hostels_count);
+                setText('perfClassesCount', data.classes_count);
+                renderPerfAuditRows(data.audit_logs);
+            } catch (e) {
+                setText('perfUptime', 'Failed to load');
+                setText('perfCpu', '--');
+            }
+        }
+
+        async function downloadPerfExport(format) {
+            const fmt = (format === 'txt') ? 'txt' : 'md';
+            try {
+                const res = await fetch(`/admin/performance/export?format=${fmt}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+                a.href = url;
+                a.download = `admin-audit-${stamp}.${fmt}`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert(`Export failed (${fmt.toUpperCase()})`);
+            }
+        }
+
+        function startPerfAutoRefresh() {
+            stopPerfAutoRefresh();
+            loadServerPerformance();
+            perfAutoRefreshId = setInterval(() => {
+                if (!isTabActive('serverPerf') || document.hidden) return;
+                loadServerPerformance();
+            }, 5000);
+        }
+
+        function stopPerfAutoRefresh() {
+            if (perfAutoRefreshId) {
+                try { clearInterval(perfAutoRefreshId); } catch (e) {}
+                perfAutoRefreshId = null;
+            }
+        }
 
         // Tab switching
         document.querySelectorAll('.tab').forEach(tab => {
@@ -408,18 +813,284 @@
                     setTimeout(initRouteMap, 100);
                     loadRoutes();
                     stopBusesAutoRefresh();
+                    stopPerfAutoRefresh();
                 } else if (tab.getAttribute('data-tab') === 'buildings') {
                     setTimeout(initBuildingsMap, 100);
                     loadHostels();
                     loadClasses();
                     stopBusesAutoRefresh();
+                    stopPerfAutoRefresh();
                 } else if (tab.getAttribute('data-tab') === 'buses') {
                     startBusesAutoRefresh();
+                    stopPerfAutoRefresh();
+                } else if (tab.getAttribute('data-tab') === 'serverPerf') {
+                    stopBusesAutoRefresh();
+                    startPerfAutoRefresh();
                 }
             });
         });
 
         // ==== ROUTE MAP ====
+        function pointDistanceMeters(a, b) {
+            const dLat = (b[0] - a[0]) * Math.PI / 180;
+            const dLng = (b[1] - a[1]) * Math.PI / 180;
+            const x = dLng * Math.cos(((a[0] + b[0]) * 0.5) * Math.PI / 180);
+            return 6371000 * Math.sqrt((dLat * dLat) + (x * x));
+        }
+
+        function getNamedStopCount() {
+            let count = 0;
+            for (let i = 1; i < currentStops.length; i++) {
+                if (currentStops[i] && String(currentStops[i]).trim()) count++;
+            }
+            return count;
+        }
+
+        function nextStopName() {
+            return `Stop ${getNamedStopCount() + 1}`;
+        }
+
+        function ensureStopsArraySize() {
+            while (currentStops.length < currentWaypoints.length) currentStops.push('');
+            if (currentStops.length > currentWaypoints.length) currentStops.length = currentWaypoints.length;
+            if (currentWaypoints.length > 0 && (!currentStops[0] || !String(currentStops[0]).trim())) {
+                currentStops[0] = 'START';
+            }
+        }
+
+        function addOrFixStopName(idx) {
+            if (idx < 0 || idx >= currentWaypoints.length) return;
+            if (idx === 0) {
+                currentStops[idx] = 'START';
+                return;
+            }
+            const existing = currentStops[idx] ? String(currentStops[idx]).trim() : '';
+            currentStops[idx] = existing || nextStopName();
+        }
+
+        function getStopListEntries() {
+            const entries = [];
+            for (let idx = 0; idx < currentWaypoints.length; idx++) {
+                const isStart = idx === 0;
+                const isEnd = idx === currentWaypoints.length - 1;
+                const name = currentStops[idx] ? String(currentStops[idx]).trim() : '';
+                if (isStart || name || (drawMode === 'freehand' && isEnd)) {
+                    entries.push({ idx, wp: currentWaypoints[idx], isStart, isEnd });
+                }
+            }
+            return entries;
+        }
+
+        function scheduleRouteRender() {
+            if (renderQueued) return;
+            renderQueued = true;
+            requestAnimationFrame(() => {
+                renderQueued = false;
+                renderMapWaypoints();
+                renderStopsList();
+            });
+        }
+
+        function updateCursorInfo() {
+            const el = document.getElementById('cursorInfo');
+            if (!el) return;
+            if (drawMode === 'straight') {
+                el.textContent = 'Straight mode: click START, then click END (single segment).';
+                return;
+            }
+            if (drawMode === 'curve') {
+                el.textContent = 'Curve mode: click 3+ points. Press Esc to finish.';
+                return;
+            }
+            if (isFreehandDrawing) {
+                el.textContent = 'Freehand mode: drag to draw. Release mouse or press Esc to finish.';
+                return;
+            }
+            el.textContent = 'Freehand mode: hold mouse and drag to draw path. Press Esc to finish.';
+        }
+
+        function formatStopRadiusText(meters) {
+            const v = Math.max(1, Math.round(Number(meters) || 0));
+            return `${v} m`;
+        }
+
+        function clearStopRadiusLayers() {
+            if (!routeMap || !stopRadiusLayers.length) return;
+            stopRadiusLayers.forEach((layer) => {
+                try { routeMap.removeLayer(layer); } catch (e) {}
+            });
+            stopRadiusLayers = [];
+        }
+
+        function drawStopRadiusLayers(entries) {
+            clearStopRadiusLayers();
+            if (!routeMap || !stopRadiusVisible || !entries || !entries.length) return;
+            const color = document.getElementById('routeColor').value || '#667eea';
+            entries.forEach(({ wp, isStart }) => {
+                if (!wp || wp.length < 2) return;
+                const layer = L.circle([wp[0], wp[1]], {
+                    radius: stopRadiusMeters,
+                    color: isStart ? '#4CAF50' : color,
+                    weight: 1,
+                    opacity: 0.42,
+                    fillColor: isStart ? '#4CAF50' : color,
+                    fillOpacity: 0.12,
+                    interactive: false
+                }).addTo(routeMap);
+                stopRadiusLayers.push(layer);
+            });
+        }
+
+        function refreshStopRadiusUi() {
+            const showToggle = document.getElementById('showStopRadius');
+            const controls = document.getElementById('stopRadiusControls');
+            const valueTag = document.getElementById('stopRadiusValue');
+            const slider = document.getElementById('stopRadiusSlider');
+            const sliderValue = document.getElementById('stopRadiusSliderValue');
+            if (!showToggle || !controls || !valueTag || !slider || !sliderValue) return;
+
+            showToggle.checked = !!stopRadiusVisible;
+            controls.classList.toggle('visible', !!stopRadiusVisible);
+            valueTag.textContent = formatStopRadiusText(stopRadiusMeters);
+            sliderValue.textContent = formatStopRadiusText(stopRadiusMeters);
+
+            const max = Number(slider.max || 300);
+            const safeForSlider = Math.min(max, Math.max(Number(slider.min || 10), stopRadiusMeters));
+            slider.value = String(safeForSlider);
+        }
+
+        function applyStopRadiusValue(rawValue) {
+            const parsed = Number(rawValue);
+            if (!isFinite(parsed) || parsed <= 0) return false;
+            stopRadiusMeters = Math.round(parsed);
+            refreshStopRadiusUi();
+            drawStopRadiusLayers(getStopListEntries());
+            return true;
+        }
+
+        function initStopRadiusControls() {
+            const showToggle = document.getElementById('showStopRadius');
+            const slider = document.getElementById('stopRadiusSlider');
+            const customInput = document.getElementById('stopRadiusCustom');
+            const applyBtn = document.getElementById('applyStopRadiusBtn');
+            if (!showToggle || !slider || !customInput || !applyBtn) return;
+            if (showToggle.dataset.bound === '1') return;
+
+            showToggle.dataset.bound = '1';
+            showToggle.addEventListener('change', () => {
+                stopRadiusVisible = !!showToggle.checked;
+                refreshStopRadiusUi();
+                drawStopRadiusLayers(getStopListEntries());
+            });
+
+            slider.addEventListener('input', () => {
+                applyStopRadiusValue(slider.value);
+            });
+
+            const applyCustom = () => {
+                if (!customInput.value.trim()) return;
+                const ok = applyStopRadiusValue(customInput.value.trim());
+                if (ok) customInput.value = '';
+            };
+            applyBtn.addEventListener('click', applyCustom);
+            customInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') applyCustom();
+            });
+
+            refreshStopRadiusUi();
+        }
+
+        function finalizeRouteCreation() {
+            if (currentWaypoints.length < 2) return;
+            ensureStopsArraySize();
+            addOrFixStopName(currentWaypoints.length - 1);
+            mapMode = 'stops';
+            updateSteps();
+            updateInstructions();
+            scheduleRouteRender();
+        }
+
+        function resetRouteBuilderState() {
+            currentWaypoints = [];
+            currentStops = [];
+            mapMode = 'start';
+            isFreehandDrawing = false;
+            freehandLastPoint = null;
+            suppressNextClick = false;
+            if (routeMap && routeMap.dragging) {
+                try { routeMap.dragging.enable(); } catch (e) {}
+            }
+            updateSteps();
+            updateInstructions();
+            updateCursorInfo();
+            renderMapWaypoints();
+            renderStopsList();
+        }
+
+        function handleRouteMapClick(lat, lng) {
+            if (drawMode === 'straight') {
+                if (currentWaypoints.length === 0) {
+                    addWaypointFromMap(lat, lng, { asStop: true });
+                } else if (currentWaypoints.length === 1) {
+                    addWaypointFromMap(lat, lng, { asStop: true });
+                    finalizeRouteCreation();
+                } else {
+                    currentWaypoints = [currentWaypoints[0], [lat, lng]];
+                    currentStops = [currentStops[0] || 'START', currentStops[1] || 'Stop 1'];
+                    ensureStopsArraySize();
+                    finalizeRouteCreation();
+                }
+                return;
+            }
+            if (drawMode === 'curve') {
+                addWaypointFromMap(lat, lng, { asStop: true });
+            }
+        }
+
+        function startFreehand(lat, lng) {
+            if (drawMode !== 'freehand') return;
+            if (currentWaypoints.length === 0) {
+                addWaypointFromMap(lat, lng, { asStop: true });
+            } else {
+                const last = currentWaypoints[currentWaypoints.length - 1];
+                if (!last || pointDistanceMeters(last, [lat, lng]) > FREEHAND_MIN_POINT_M) {
+                    addWaypointFromMap(lat, lng, { asStop: false });
+                }
+            }
+            isFreehandDrawing = true;
+            freehandLastPoint = [lat, lng];
+            suppressNextClick = true;
+            if (routeMap && routeMap.dragging) {
+                try { routeMap.dragging.disable(); } catch (e) {}
+            }
+            updateInstructions();
+        }
+
+        function extendFreehand(lat, lng) {
+            if (!isFreehandDrawing || drawMode !== 'freehand') return;
+            if (!freehandLastPoint || pointDistanceMeters(freehandLastPoint, [lat, lng]) >= FREEHAND_MIN_POINT_M) {
+                addWaypointFromMap(lat, lng, { asStop: false });
+                freehandLastPoint = [lat, lng];
+            }
+        }
+
+        function stopFreehand(lat, lng) {
+            if (!isFreehandDrawing) return;
+            isFreehandDrawing = false;
+            if (routeMap && routeMap.dragging) {
+                try { routeMap.dragging.enable(); } catch (e) {}
+            }
+            if (typeof lat === 'number' && typeof lng === 'number') {
+                const last = currentWaypoints[currentWaypoints.length - 1];
+                if (!last || pointDistanceMeters(last, [lat, lng]) > 1) {
+                    addWaypointFromMap(lat, lng, { asStop: false });
+                }
+            }
+            freehandLastPoint = null;
+            finalizeRouteCreation();
+            updateInstructions();
+        }
+
         function initRouteMap() {
             if (routeMap) return;
             const bounds = [[20.339920625677212, 85.7964659296332], [20.37210882553945, 85.83388810783698]];
@@ -434,89 +1105,162 @@
             }).addTo(routeMap);
 
             routeMap.on('click', (e) => {
-                const lat = e.latlng.lat;
-                const lng = e.latlng.lng;
-                addWaypointFromMap(lat, lng);
+                if (suppressNextClick) { suppressNextClick = false; return; }
+                if (drawMode === 'freehand') return;
+                handleRouteMapClick(e.latlng.lat, e.latlng.lng);
             });
-        }
 
-        function addWaypointFromMap(lat, lng) {
-            if (mapMode === 'start' && currentWaypoints.length === 0) {
-                // First point is START
-                currentWaypoints.push([lat, lng]);
-                currentStops.push('START');
-                mapMode = 'stops';
-                updateSteps();
-                updateInstructions();
-            } else if (mapMode === 'stops') {
-                // Additional points are STOPS
-                currentWaypoints.push([lat, lng]);
-                const stopNum = currentWaypoints.length;
-                currentStops.push(`Stop ${stopNum - 1}`);
+            routeMap.on('mousedown', (e) => {
+                if (drawMode !== 'freehand') return;
+                startFreehand(e.latlng.lat, e.latlng.lng);
+            });
+            routeMap.on('mousemove', (e) => {
+                if (drawMode !== 'freehand') return;
+                extendFreehand(e.latlng.lat, e.latlng.lng);
+            });
+            routeMap.on('mouseup', (e) => {
+                if (drawMode !== 'freehand') return;
+                stopFreehand(e.latlng.lat, e.latlng.lng);
+            });
+            routeMap.on('mouseout', () => {
+                if (drawMode !== 'freehand') return;
+                if (isFreehandDrawing) stopFreehand();
+            });
+
+            const modeSel = document.getElementById('drawMode');
+            if (modeSel) {
+                drawMode = modeSel.value || 'curve';
+                modeSel.addEventListener('change', () => {
+                    drawMode = modeSel.value || 'curve';
+                    if (drawMode !== 'freehand' && isFreehandDrawing) stopFreehand();
+                    if (drawMode === 'straight' && currentWaypoints.length > 2) {
+                        const end = currentWaypoints[currentWaypoints.length - 1];
+                        currentWaypoints = [currentWaypoints[0], end];
+                        currentStops = [currentStops[0] || 'START', currentStops[currentStops.length - 1] || 'Stop 1'];
+                        ensureStopsArraySize();
+                        finalizeRouteCreation();
+                    } else {
+                        updateInstructions();
+                        scheduleRouteRender();
+                    }
+                });
             }
-            renderMapWaypoints();
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                const routesTab = document.getElementById('routes');
+                if (!routesTab || !routesTab.classList.contains('active')) return;
+                if (drawMode === 'freehand' && isFreehandDrawing) {
+                    stopFreehand();
+                } else {
+                    finalizeRouteCreation();
+                }
+            });
+
+            initStopRadiusControls();
+            updateSteps();
+            updateInstructions();
             renderStopsList();
         }
 
+        function addWaypointFromMap(lat, lng, opts = {}) {
+            const asStop = opts.asStop !== false;
+            currentWaypoints.push([lat, lng]);
+            currentStops.push('');
+            ensureStopsArraySize();
+            if (currentWaypoints.length === 1) {
+                mapMode = 'stops';
+                currentStops[0] = 'START';
+            } else if (asStop) {
+                addOrFixStopName(currentWaypoints.length - 1);
+            }
+            updateSteps();
+            updateInstructions();
+            scheduleRouteRender();
+        }
+
         function updateSteps() {
-            document.getElementById('step1').classList.remove('active');
-            document.getElementById('step1').classList.add('done');
-            document.getElementById('step2').classList.add('active');
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+            if (!step1 || !step2 || !step3) return;
+
+            step1.classList.remove('active', 'done');
+            step2.classList.remove('active', 'done');
+            step3.classList.remove('active', 'done');
+
+            if (currentWaypoints.length === 0) {
+                step1.classList.add('active');
+                return;
+            }
+            step1.classList.add('done');
+            step2.classList.add('active');
+            if (currentWaypoints.length >= 2) step3.classList.add('active');
         }
 
         function updateInstructions() {
-            const instructions = {
-                start: {
-                    main: '📍 Step 1: Set START point',
-                    sub: 'Click ONE spot on the map - this is where the transport starts'
-                },
-                stops: {
-                    main: '🛑 Step 2: Add STOPS',
-                    sub: `Click more spots for each stop. You have ${currentWaypoints.length - 1} stops. Add more or Save.`
-                }
-            };
-            
-            const inst = instructions[mapMode];
-            document.getElementById('mainInstruction').textContent = inst.main;
-            document.getElementById('subInstruction').textContent = inst.sub;
-        }
+            const stopsCount = getNamedStopCount();
+            let main = 'Step 1: Click on map to set START point';
+            let sub = 'First click anywhere on the map';
 
+            if (mapMode !== 'start') {
+                main = 'Step 2: Build route path';
+                if (drawMode === 'straight') {
+                    sub = (currentWaypoints.length < 2)
+                        ? 'Click one END point to complete straight route.'
+                        : 'Straight route complete. Click Save Route.';
+                } else if (drawMode === 'curve') {
+                    sub = `Add 3+ points for bends. Press Esc to finish. Stops: ${stopsCount}`;
+                } else {
+                    sub = isFreehandDrawing
+                        ? 'Drawing freehand... release mouse or press Esc to finalize endpoint stop.'
+                        : `Drag to draw freehand path. Press Esc to finish. Stops: ${stopsCount}`;
+                }
+            }
+
+            document.getElementById('mainInstruction').textContent = main;
+            document.getElementById('subInstruction').textContent = sub;
+            updateCursorInfo();
+        }
         function renderMapWaypoints() {
-            // Clear existing
+            if (!routeMap) return;
+            const color = document.getElementById('routeColor').value;
+
             routeMarkers.forEach(m => {
-                try { routeMap.removeLayer(m); } catch(e) {}
+                try { routeMap.removeLayer(m); } catch (e) {}
             });
             routeMarkers = [];
 
-            const color = document.getElementById('routeColor').value;
+            if (routeLine) {
+                try { routeMap.removeLayer(routeLine); } catch (e) {}
+                routeLine = null;
+            }
 
-            // Add markers (fixed-size DivIcons)
-            currentWaypoints.forEach((wp, idx) => {
-                const isStart = idx === 0;
+            const stopEntries = getStopListEntries();
+            stopEntries.forEach(({ idx, wp, isStart }) => {
                 const bg = isStart ? '#4CAF50' : color;
                 const html = isStart
                     ? '<span class="tiny-marker tiny-start"></span>'
                     : `<span class="tiny-marker" style="background:${bg}"></span>`;
-                const icon = L.divIcon({ className: 'marker-wrapper', html: html, iconSize: [10,10], iconAnchor: [5,5] });
+                const icon = L.divIcon({ className: 'marker-wrapper', html: html, iconSize: [10, 10], iconAnchor: [5, 5] });
                 const marker = L.marker([wp[0], wp[1]], { icon }).addTo(routeMap);
-                const label = currentStops[idx] || (isStart ? 'START' : `Stop ${idx}`);
+                const label = (currentStops[idx] && String(currentStops[idx]).trim())
+                    ? String(currentStops[idx]).trim()
+                    : (isStart ? 'START' : `Stop ${idx}`);
                 marker.bindPopup(`<b>${label}</b><br>${wp[0].toFixed(4)}, ${wp[1].toFixed(4)}`);
                 routeMarkers.push(marker);
             });
 
-            // Draw polyline with road-based routing
             if (currentWaypoints.length > 1) {
-                getOSRMRoute(currentWaypoints).then(routeCoords => {
-                    const line = L.polyline(routeCoords || currentWaypoints, {
-                        color: color,
-                        weight: 2,
-                        opacity: 0.7
-                    }).addTo(routeMap);
-                    routeMarkers.push(line);
-                });
+                routeLine = L.polyline(currentWaypoints, {
+                    color: color,
+                    weight: 2.5,
+                    opacity: 0.8
+                }).addTo(routeMap);
             }
-        }
 
+            drawStopRadiusLayers(stopEntries);
+        }
         async function getOSRMRoute(waypoints) {
             try {
                 if (waypoints.length < 2) return waypoints;
@@ -541,26 +1285,30 @@
 
         function renderStopsList() {
             const list = document.getElementById('stopsList');
-            document.getElementById('stopCount').textContent = currentWaypoints.length;
-            
-            if (currentWaypoints.length === 0) {
+            const entries = getStopListEntries();
+            document.getElementById('stopCount').textContent = entries.length;
+
+            if (entries.length === 0) {
                 list.innerHTML = '<div style="text-align:center; color:#666; padding:20px; font-size:12px">No stops yet - click map to start</div>';
                 return;
             }
-            
+
             list.innerHTML = '';
-            currentWaypoints.forEach((wp, idx) => {
-                const item = document.createElement('div');
+            entries.forEach(({ idx }) => {
                 const isStart = idx === 0;
+                const fallback = isStart ? 'START' : `Stop ${idx}`;
+                const value = (currentStops[idx] && String(currentStops[idx]).trim()) ? currentStops[idx] : fallback;
+
+                const item = document.createElement('div');
                 item.className = `stop-item ${isStart ? 'start' : ''}`;
                 item.style.borderLeftColor = isStart ? '#4CAF50' : document.getElementById('routeColor').value;
-                
+
                 item.innerHTML = `
-                    <div class="stop-icon">${isStart ? '🟢' : '🔴'}</div>
-                    <input type="text" placeholder="${isStart ? 'START' : 'Stop name'}" value="${currentStops[idx]}" readonly style="cursor:pointer" title="Click to edit">
-                    <button class="danger" style="padding:4px 6px; font-size:11px" onclick="removeMapWaypoint(${idx})">✕</button>
+                    <div class="stop-icon">${isStart ? 'S' : 'P'}</div>
+                    <input type="text" placeholder="${fallback}" value="${value}" readonly style="cursor:pointer" title="Click to edit">
+                    <button class="danger" style="padding:4px 6px; font-size:11px" onclick="removeMapWaypoint(${idx})">x</button>
                 `;
-                
+
                 const input = item.querySelector('input');
                 input.addEventListener('click', () => {
                     input.removeAttribute('readonly');
@@ -568,7 +1316,7 @@
                     input.focus();
                 });
                 input.addEventListener('blur', () => {
-                    currentStops[idx] = input.value || (isStart ? 'START' : `Stop ${idx}`);
+                    currentStops[idx] = input.value || fallback;
                     input.setAttribute('readonly', '');
                     input.style.cursor = 'pointer';
                     renderMapWaypoints();
@@ -576,7 +1324,7 @@
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') input.blur();
                 });
-                
+
                 list.appendChild(item);
             });
         }
@@ -586,26 +1334,23 @@
                 alert('Cannot remove START point');
                 return;
             }
+            if (idx < 0 || idx >= currentWaypoints.length) return;
+
             currentWaypoints.splice(idx, 1);
             currentStops.splice(idx, 1);
+            ensureStopsArraySize();
             if (currentWaypoints.length === 0) mapMode = 'start';
+            if (drawMode === 'freehand' && currentWaypoints.length >= 2) {
+                addOrFixStopName(currentWaypoints.length - 1);
+            }
             updateSteps();
             updateInstructions();
-            renderMapWaypoints();
-            renderStopsList();
+            scheduleRouteRender();
         };
 
         document.getElementById('clearMapBtn').addEventListener('click', () => {
             if (currentWaypoints.length > 0 && !confirm('Clear all stops?')) return;
-            currentWaypoints = [];
-            currentStops = [];
-            mapMode = 'start';
-            document.getElementById('step1').classList.remove('done');
-            document.getElementById('step1').classList.add('active');
-            document.getElementById('step2').classList.remove('active');
-            renderMapWaypoints();
-            renderStopsList();
-            updateInstructions();
+            resetRouteBuilderState();
         });
 
         document.getElementById('routeColor').addEventListener('change', () => {
@@ -617,7 +1362,17 @@
             const color = document.getElementById('routeColor').value;
             
             if (!name) { alert('Enter route name'); return; }
-            if (currentWaypoints.length < 2) { alert('Add at least START + 1 STOP'); return; }
+            if (currentWaypoints.length < 2) { alert('Add at least START + END'); return; }
+            if (drawMode === 'straight' && currentWaypoints.length !== 2) {
+                alert('Straight mode needs exactly 2 points: start and end.');
+                return;
+            }
+            if (drawMode === 'curve' && currentWaypoints.length < 3) {
+                alert('Curve mode needs at least 3 points.');
+                return;
+            }
+            finalizeRouteCreation();
+            ensureStopsArraySize();
             
             const route = {
                 id: editingRouteId || `route_${Date.now()}`,
@@ -634,17 +1389,9 @@
             });
             
             if (res.ok) {
-                currentWaypoints = [];
-                currentStops = [];
                 editingRouteId = null;
-                mapMode = 'start';
                 document.getElementById('routeName').value = '';
-                document.getElementById('step1').classList.remove('done');
-                document.getElementById('step1').classList.add('active');
-                document.getElementById('step2').classList.remove('active');
-                renderMapWaypoints();
-                renderStopsList();
-                updateInstructions();
+                resetRouteBuilderState();
                 await loadRoutes();
             }
         });
@@ -669,15 +1416,18 @@
             routes.forEach(route => {
                 // Determine status: running if any active bus is assigned to this route
                 const isRunning = Object.values(busRoutes || {}).some(rid => String(rid) === String(route.id));
+                const namedStops = (route.stops || []).filter(s => s && String(s).trim());
+                const stopCount = namedStops.length || route.waypoints.length;
+                const stopPreview = namedStops.slice(0, 2).join(' → ');
                 const card = document.createElement('div');
                 card.className = 'route-card';
                 card.style.borderLeftColor = route.color;
                 card.innerHTML = `
                     <div class="route-name">${route.name}</div>
                     <div class="route-info">
-                        <div>🛑 ${route.waypoints.length} stops</div>
+                        <div>🛑 ${stopCount} stops</div>
                         <div style="margin-top:4px"><span class="route-badge ${isRunning ? 'badge-running' : 'badge-idle'}">${isRunning ? 'Running' : 'Idle'}</span></div>
-                        <div style="margin-top:4px; color:#667eea">${(route.stops || []).slice(0, 2).join(' → ')}</div>
+                        <div style="margin-top:4px; color:#667eea">${stopPreview}</div>
                     </div>
                     <div class="route-actions">
                         <button class="ok" style="background:rgba(102,126,234,0.1)" onclick="editRoute('${route.id}')">✏️ Edit</button>
@@ -699,6 +1449,7 @@
                     document.getElementById('routeColor').value = route.color;
                     currentWaypoints = JSON.parse(JSON.stringify(route.waypoints));
                     currentStops = JSON.parse(JSON.stringify(route.stops || []));
+                    ensureStopsArraySize();
                     editingRouteId = routeId;
                     mapMode = 'stops';
                     updateSteps();
@@ -799,6 +1550,12 @@
         }
 
         document.getElementById('refreshBtn').addEventListener('click', loadBuses);
+        const perfRefreshBtn = document.getElementById('perfRefreshBtn');
+        if (perfRefreshBtn) perfRefreshBtn.addEventListener('click', loadServerPerformance);
+        const perfExportMdBtn = document.getElementById('perfExportMdBtn');
+        const perfExportTxtBtn = document.getElementById('perfExportTxtBtn');
+        if (perfExportMdBtn) perfExportMdBtn.addEventListener('click', () => downloadPerfExport('md'));
+        if (perfExportTxtBtn) perfExportTxtBtn.addEventListener('click', () => downloadPerfExport('txt'));
         document.getElementById('clearAllBtn').addEventListener('click', async () => {
             if (!confirm('Clear all transports?')) return;
             await fetch('/api/buses/clear', { method: 'POST' });
@@ -850,6 +1607,10 @@
         // Initial load and start auto refresh (buses tab is active by default)
         loadBuses();
         startBusesAutoRefresh();
+        window.addEventListener('beforeunload', () => {
+            stopBusesAutoRefresh();
+            stopPerfAutoRefresh();
+        });
 
         // Live updates via SSE
         try{

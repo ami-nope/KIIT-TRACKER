@@ -1,0 +1,1100 @@
+[
+  {
+    "ts": "2026-02-12T06:15:10.190524Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=100 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.191683Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=101 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.192238Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=105 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.192632Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=104 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.193002Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=103 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.193268Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.193509Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=108 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.193751Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=107 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.194002Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=106 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:15:10.194264Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=109 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.584344Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=100 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.584999Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=101 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.585381Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.585782Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=106 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.586137Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=105 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.586474Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=104 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.586874Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=103 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.587288Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=109 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.587646Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=108 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:17:10.588009Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=107 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.273665Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=100 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.274440Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=103 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.274878Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.275279Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=101 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.275680Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=106 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.276108Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=105 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.276516Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=104 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.276928Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=107 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.277340Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=109 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:18:10.277762Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=108 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.642883Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=100 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.643687Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.644261Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=101 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.644755Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=103 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.645239Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=104 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.645726Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=105 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.646201Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=107 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.646683Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=106 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.647191Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=108 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:19:10.647690Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=109 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:44.844036Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=100 route=route_1770875818214 lat=20.35652122929079 lng=85.81941532878596",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:44.872854Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=101 route=route_1770875858248 lat=20.34218520971474 lng=85.82150115075777",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:44.912449Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=102 route=route_1770875818214 lat=20.349309402098623 lng=85.81913412966857",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.076027Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=104 route=route_1770875858248 lat=20.3552947413867 lng=85.81513628920682",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.078786Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=103 route=route_1770875818214 lat=20.345322036441793 lng=85.8072516091114",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.119507Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=105 route=route_1770875818214 lat=20.352379900534878 lng=85.81488334987012",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.127087Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=106 route=route_1770875818214 lat=20.356421437803608 lng=85.81939489767028",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.167255Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=108 route=route_1770557136564 lat=20.350834993244874 lng=85.81705651655214",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.169986Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=107 route=route_1770875818214 lat=20.351179765777527 lng=85.81666430283208",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.206559Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=109 route=route_1770875858248 lat=20.354194806930742 lng=85.82646833709283",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.223009Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=110 route=route_1770557690099 lat=20.349281875554176 lng=85.81912879062224",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.243274Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=111 route=route_1770557690099 lat=20.352170644286794 lng=85.8193190815601",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.264062Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=112 route=route_1770557690099 lat=20.34933276755006 lng=85.81897302607472",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.284471Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=113 route=route_1770557136564 lat=20.3510066917832 lng=85.81562101805396",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.312813Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=114 route=route_1770875858248 lat=20.34261829675617 lng=85.8072851488098",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.323737Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=115 route=route_1770557136564 lat=20.351202532852348 lng=85.81372985403384",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.365747Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=116 route=route_1770875818214 lat=20.349640706530156 lng=85.81803858325766",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.383135Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=117 route=route_1770557690099 lat=20.354215812034354 lng=85.81928054473984",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.408552Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=118 route=route_1770557136564 lat=20.35587875379364 lng=85.8194564606797",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:27:45.973824Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=119 route=route_1770557136564 lat=20.355654401648263 lng=85.8194524892564",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:32:48.626859Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=100 route=route_1770875858248 lat=20.353778148232177 lng=85.82414581705324",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:32:48.635186Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=101 route=route_1770875818214 lat=20.351949493164323 lng=85.8193445340055",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:32:48.667653Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=102 route=route_1770557136564 lat=20.350131563757998 lng=85.81755310148169",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:32:48.685663Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=104 route=route_1770875858248 lat=20.3556984582844 lng=85.82354309861925",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:32:48.689256Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=103 route=route_1770557136564 lat=20.352239723811714 lng=85.81942821367049",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:33:55.521490Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:33:55.522621Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=100 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:33:55.523546Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=101 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:33:55.524433Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=103 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:33:55.525372Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=104 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.643245Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=100 route=route_1770875818214 lat=20.35059299140255 lng=85.8171204165325",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.691869Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=102 route=route_1770875858248 lat=20.351863901892806 lng=85.8084371365007",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.697202Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=101 route=route_1770875818214 lat=20.350812091685025 lng=85.81930669163789",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.706076Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=103 route=route_1770875858248 lat=20.35870633671938 lng=85.80642763523659",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.743331Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=105 route=route_1770557690099 lat=20.34929049263181 lng=85.81914453101179",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.746308Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=104 route=route_1770875858248 lat=20.355572453572304 lng=85.824796451044",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.748634Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=106 route=route_1770875818214 lat=20.355828170025628 lng=85.819389803384",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.793266Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=107 route=route_1770557690099 lat=20.350798004383993 lng=85.81475702461984",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.796321Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=109 route=route_1770875858248 lat=20.362681156212922 lng=85.827220640151",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.798797Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=108 route=route_1770557136564 lat=20.34982362378005 lng=85.81776281066594",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.851306Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=110 route=route_1770557690099 lat=20.353807245888188 lng=85.81925840078692",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.854407Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=112 route=route_1770875858248 lat=20.348919321758608 lng=85.8135291500714",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:53.856859Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=111 route=route_1770557136564 lat=20.35096320693471 lng=85.81670085033977",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.179568Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=114 route=route_1770557690099 lat=20.35402362357674 lng=85.81926496880547",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.183632Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=113 route=route_1770875858248 lat=20.362643402248814 lng=85.82723751836254",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.206009Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=115 route=route_1770557136564 lat=20.35102864455693 lng=85.81578148643605",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.238126Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=117 route=route_1770557136564 lat=20.35582873025823 lng=85.81945973159173",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.241380Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=116 route=route_1770875858248 lat=20.342684795831453 lng=85.8072369281465",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.258492Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=118 route=route_1770557690099 lat=20.35063654054946 lng=85.81520103839722",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:35:54.272162Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "amikokok03.0",
+    "ip": "10.5.97.207",
+    "details": "bus=119 route=route_1770557690099 lat=20.34945517720077 lng=85.81931186442235",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:36:56.467062Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=destination_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:37:12.255929Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=111 reason=destination_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.742745Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=105 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.744946Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=107 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.746387Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=109 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.747855Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=108 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.750090Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=106 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.751394Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=110 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.753191Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=112 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.755410Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=115 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.757445Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=114 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.759989Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=113 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.761927Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=119 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.764074Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=117 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.766484Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=116 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.768868Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=118 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:15.770346Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=111 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:16.789863Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=101 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:16.792498Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=100 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:16.794679Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=103 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:16.796156Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=104 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:38:16.797834Z",
+    "event": "bus_auto_remove",
+    "status": "success",
+    "username": "system",
+    "ip": "system",
+    "details": "bus=102 reason=inactivity_timeout",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.742237Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=100 route=route_1770875818214 lat=20.354120195258496 lng=85.81056447674025",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.747120Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=101 route=route_1770557690099 lat=20.349674110403992 lng=85.81793932643599",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.751830Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=102 route=route_1770557136564 lat=20.353550314065732 lng=85.81943882713408",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.757458Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=103 route=route_1770557690099 lat=20.349789489848824 lng=85.81753618472119",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.762344Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=104 route=route_1770557690099 lat=20.350017108798802 lng=85.81688886287729",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.767701Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=105 route=route_1770875858248 lat=20.357607150779003 lng=85.81214247041551",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.773263Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=106 route=route_1770875818214 lat=20.352340700347575 lng=85.81506300920775",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.778882Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=107 route=route_1770557136564 lat=20.352291975877446 lng=85.81943553772753",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.783767Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=108 route=route_1770875858248 lat=20.35797504816255 lng=85.81574763421857",
+    "ua": ""
+  },
+  {
+    "ts": "2026-02-12T06:40:49.796751Z",
+    "event": "Deleted transport",
+    "status": "success",
+    "username": "shygirl123",
+    "ip": "127.0.0.1",
+    "details": "bus=109 route=route_1770875818214 lat=20.351633274095164 lng=85.81629821922517",
+    "ua": ""
+  }
+]

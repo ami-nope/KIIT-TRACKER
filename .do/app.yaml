@@ -1,0 +1,21 @@
+name: kiit-transport
+region: nyc
+
+services:
+  - name: web
+    git:
+      repo_clone_url: https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO.git
+      branch: main
+    source_dir: /
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: PORT
+        value: "8080"
+        scope: RUN_AND_BUILD_TIME
+      - key: FLASK_SECRET
+        value: REPLACE_WITH_A_LONG_RANDOM_SECRET
+        type: SECRET
+        scope: RUN_TIME

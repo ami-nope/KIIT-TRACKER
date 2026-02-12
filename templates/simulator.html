@@ -1,4 +1,56 @@
 <!DOCTYPE html>
+</body>
+</html>
+
+<!-- System Load Simulation scripts moved here to fix HTML structure -->
+<script>
+// --- System Load Simulation UI wiring ---
+document.addEventListener('DOMContentLoaded',()=>{
+  const startBtn = document.getElementById('systemSimStartBtn');
+  const stopBtn = document.getElementById('systemSimStopBtn');
+  const driverInput = document.getElementById('systemSimDriverCount');
+  const studentInput = document.getElementById('systemSimStudentCount');
+  startBtn.addEventListener('click', async ()=>{
+    if (systemSimRunning) return;
+    const driverCount = Math.max(1, Math.min(100, parseInt(driverInput.value)||20));
+    const studentCount = Math.max(1, Math.min(500, parseInt(studentInput.value)||100));
+    setSystemSimStatus('Starting simulation...', true);
+    systemSimRunning = true;
+    await startSystemDriverSimulation(driverCount);
+    startSystemStudentSimulation(studentCount);
+    setSystemSimStatus(`Running: ${driverCount} drivers, ${studentCount} students`, true);
+  });
+  stopBtn.addEventListener('click', ()=>{
+    if (!systemSimRunning) return;
+    setSystemSimStatus('Stopping simulation...', false);
+    systemSimRunning = false;
+    stopSystemDriverSimulation();
+    stopSystemStudentSimulation();
+    setSystemSimStatus('Idle', false);
+  });
+});
+// --- Student Simulation for System Load ---
+function startSystemStudentSimulation(studentCount) {
+  for (let i = 0; i < studentCount; i++) {
+    // Each student fetches /api/buses every 3-5s, /api/routes occasionally
+    const busInterval = setInterval(() => {
+      fetch('/api/buses').catch(()=>{});
+      // Occasionally fetch routes
+      if (Math.random() < 0.15) fetch('/api/routes').catch(()=>{});
+      // Optionally simulate SSE connection (no-op, just open/close EventSource)
+      if (Math.random() < 0.05) {
+        try { const es = new EventSource('/events'); setTimeout(()=>es.close(), 1000+Math.random()*2000); } catch(e){}
+      }
+    }, 3000 + Math.floor(Math.random()*2000));
+    systemSimStudentIntervals.push(busInterval);
+  }
+}
+
+function stopSystemStudentSimulation() {
+  for (const interval of systemSimStudentIntervals) clearInterval(interval);
+  systemSimStudentIntervals = [];
+}
+</script>
 <html>
 <head>
 <title>Bus Simulator</title>
@@ -60,12 +112,103 @@ body { margin:0; background:#0f0f23; color:#e6eef8; font-family:'Segoe UI',sans-
 }
 .aligner-toggle.active { border-color:rgba(102,126,234,0.4); background:rgba(102,126,234,0.08); }
 .aligner-toggle.active .aligner-badge { background:rgba(102,126,234,0.25); }
+.auto-follow-panel {
+  margin-top:8px; padding:8px 10px; border-radius:8px; display:none;
+  background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.24);
+}
+.auto-follow-panel.visible { display:block; }
+.auto-follow-row { display:flex; align-items:center; gap:8px; }
+#autoFollowBtn {
+  flex:1; border:none; border-radius:7px; padding:7px 8px;
+  background:rgba(52,211,153,0.15); color:#34d399; font-size:12px; font-weight:600;
+  cursor:pointer; transition:all 0.2s;
+}
+#autoFollowBtn:hover:not(:disabled) { background:rgba(52,211,153,0.25); }
+#autoFollowBtn:disabled { opacity:0.45; cursor:not-allowed; }
+#autoFollowBtn.running { background:rgba(102,126,234,0.2); color:#a5b4fc; }
+.dir-toggle {
+  display:inline-flex; border:1px solid rgba(255,255,255,0.1); border-radius:7px; overflow:hidden;
+}
+.dir-btn {
+  border:none; padding:7px 8px; min-width:72px;
+  background:rgba(255,255,255,0.04); color:#9aa4b2; font-size:11px; cursor:pointer; transition:all 0.2s;
+}
+.dir-btn + .dir-btn { border-left:1px solid rgba(255,255,255,0.1); }
+.dir-btn.active { background:rgba(102,126,234,0.22); color:#c7d2fe; }
+.dir-btn:disabled { opacity:0.45; cursor:not-allowed; }
+.auto-follow-hint { margin-top:6px; font-size:10px; color:#9aa4b2; }
+.load-sim-panel {
+  margin-top:10px; padding:8px 10px; border-radius:8px;
+  background:rgba(102,126,234,0.08); border:1px solid rgba(102,126,234,0.24);
+}
+.load-sim-panel label { margin-top:0; }
+#loadSimCount {
+  margin-top:4px; width:100%; box-sizing:border-box;
+  padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.1);
+  background:#0f0f23; color:#e6eef8; font-size:13px;
+}
+.load-sim-row { display:flex; align-items:center; gap:8px; margin-top:8px; }
+#startLoadSimBtn, #stopLoadSimBtn {
+  flex:1; border:none; border-radius:7px; padding:7px 8px;
+  font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s;
+}
+#startLoadSimBtn {
+  background:rgba(52,211,153,0.15); color:#34d399;
+}
+#startLoadSimBtn:hover:not(:disabled) { background:rgba(52,211,153,0.25); }
+#stopLoadSimBtn {
+  background:rgba(251,113,133,0.15); color:#fb7185;
+}
+#stopLoadSimBtn:hover:not(:disabled) { background:rgba(251,113,133,0.25); }
+#startLoadSimBtn:disabled, #stopLoadSimBtn:disabled {
+  opacity:0.45; cursor:not-allowed;
+}
+#loadSimStatus {
+  margin-top:6px; font-size:11px; color:#9aa4b2;
+}
 </style>
 </head>
 <body>
 
 <div class="controls">
   <div style="font-weight:600; font-size:14px; margin-bottom:6px;">🚍 Bus Simulator</div>
+
+    <!-- Student Activity Simulation Panel -->
+    <div id="studentSimPanel" style="margin-top:18px; border-radius:18px; background:rgba(40,20,60,0.32); box-shadow:0 4px 32px 0 rgba(102,126,234,0.18),0 1.5px 8px 0 rgba(102,0,255,0.08); border:1.5px solid rgba(180,120,255,0.18); backdrop-filter:blur(18px); padding:18px 18px 14px 18px; position:relative; overflow:hidden;">
+      <div style="font-weight:700; font-size:15px; color:#e0d6ff; margin-bottom:8px; letter-spacing:0.01em;">🧑‍🎓 Student Activity Simulation</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+        <label style="flex:1; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:13px; color:#b7aaff;">Enable Simulation</span>
+          <input type="checkbox" id="studentSimEnable" style="accent-color:#a78bfa; width:20px; height:20px; margin-left:4px;">
+        </label>
+        <span id="studentSimInfo" style="font-size:11px; color:#a78bfa; background:rgba(102,126,234,0.13); border-radius:6px; padding:2px 8px;">Simulated student demand activity</span>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px; color:#b7aaff;">Active Students
+          <input type="range" id="studentSimCount" min="0" max="500" value="120" style="width:100%; margin-top:2px;">
+        </label>
+        <div style="font-size:11px; color:#a78bfa; margin-top:2px;">Max 200 visible</div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px; color:#b7aaff;">Movement Speed
+          <input type="range" id="studentSimSpeed" min="1" max="10" value="4" style="width:100%; margin-top:2px;">
+        </label>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px; color:#b7aaff;">Primary Demand Zone
+          <select id="studentSimZone" style="width:100%; margin-top:2px; background:#1a1330; color:#e6eef8; border-radius:7px; border:1px solid #a78bfa;">
+            <option value="hostels">Hostels</option>
+            <option value="classes">Classes</option>
+            <option value="mixed" selected>Mixed</option>
+          </select>
+        </label>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+        <span style="font-size:12px; color:#b7aaff;">Simulated viewers:</span>
+        <span id="studentSimViewerCount" style="font-size:15px; color:#fff; font-weight:700; text-shadow:0 0 8px #a78bfa;">0</span>
+      </div>
+    </div>
+
 
   <label>Bus Number
     <select id="busSelect"><option value="" selected>— Select Bus —</option></select>
@@ -95,18 +238,266 @@ body { margin:0; background:#0f0f23; color:#e6eef8; font-family:'Segoe UI',sans-
     <span class="aligner-badge">OFF</span>
   </div>
 
+  <div class="auto-follow-panel" id="autoFollowPanel">
+    <div class="auto-follow-row">
+      <button id="autoFollowBtn" type="button">Auto Follow OFF</button>
+      <div class="dir-toggle" role="group" aria-label="Auto follow direction">
+        <button id="dirForwardBtn" class="dir-btn active" type="button">Forward</button>
+        <button id="dirReverseBtn" class="dir-btn" type="button">Backward</button>
+      </div>
+    </div>
+    <div class="auto-follow-hint">Starts at 12 km/h. Use speed bar to adjust.</div>
+  </div>
+
   <div id="syncStatus"><span class="status-dot" style="background:#667"></span>Waiting to start...</div>
   <div id="updateStats" style="font-size:11px; color:#9aa4b2; margin-top:4px; display:flex; justify-content:space-between">
     <span>Sent: <span id="updateCount" style="color:#34d399;font-weight:600">0</span></span>
     <span>Last: <span id="lastUpdateTime" style="color:#667eea">—</span></span>
   </div>
   <button id="startBtn" disabled>Select bus & route first</button>
+
+  <div class="load-sim-panel">
+    <label for="loadSimCount">Transport Count</label>
+    <input type="number" id="loadSimCount" min="1" max="50" step="1" value="20"/>
+    <div class="load-sim-row">
+      <button id="startLoadSimBtn" type="button">Start Load Simulation</button>
+      <button id="stopLoadSimBtn" type="button" disabled>Stop Simulation</button>
+    </div>
+    <div id="loadSimStatus">Load simulation idle</div>
+  </div>
 </div>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// --- Student Simulation Layer ---
+let studentSimLayer = null;
+let studentSimDots = [];
+let studentSimEnabled = false;
+let studentSimCount = 120;
+let studentSimSpeed = 4;
+let studentSimZone = 'mixed';
+let studentSimDemandZones = { hostels: [], classes: [] };
+let studentSimLastUpdate = 0;
+let studentSimDotColors = ['#a78bfa','#f472b6','#60a5fa','#fbbf24','#34d399','#f87171'];
+
+function getRandomZoneLatLng(zone) {
+  const arr = studentSimDemandZones[zone];
+  if (!arr.length) return null;
+  const idx = Math.floor(Math.random() * arr.length);
+  const base = arr[idx];
+  // Add small random offset (within ~60m)
+  const lat = base[0] + (Math.random()-0.5)*0.0005;
+  const lng = base[1] + (Math.random()-0.5)*0.0005;
+  return [lat, lng];
+}
+
+function createStudentSimDots(n) {
+  const dots = [];
+  for (let i = 0; i < n; i++) {
+    const zone = studentSimZone === 'mixed' ? (Math.random()<0.5?'hostels':'classes') : studentSimZone;
+    const pos = getRandomZoneLatLng(zone) || [lat, lng];
+    dots.push({
+      lat: pos[0],
+      lng: pos[1],
+      zone,
+      color: studentSimDotColors[i%studentSimDotColors.length],
+      speed: 0.00005 + Math.random()*0.00012*studentSimSpeed,
+      angle: Math.random()*2*Math.PI,
+      pulse: Math.random()*Math.PI*2,
+      cluster: Math.random()<0.25,
+      fade: 0,
+      viewing: Math.random()<0.1
+    });
+  }
+  return dots;
+}
+
+function updateStudentSimDots() {
+  // Animate movement and pulsing
+  for (const dot of studentSimDots) {
+    // Cluster some dots near stops
+    if (dot.cluster && studentSimDemandZones[dot.zone].length) {
+      const base = studentSimDemandZones[dot.zone][Math.floor(Math.random()*studentSimDemandZones[dot.zone].length)];
+      dot.lat += (base[0]-dot.lat)*0.02 + (Math.random()-0.5)*0.00005;
+      dot.lng += (base[1]-dot.lng)*0.02 + (Math.random()-0.5)*0.00005;
+    } else {
+      dot.lat += Math.cos(dot.angle)*dot.speed*(0.5+Math.random());
+      dot.lng += Math.sin(dot.angle)*dot.speed*(0.5+Math.random());
+      if (Math.random()<0.04) dot.angle += (Math.random()-0.5)*0.7;
+    }
+    dot.pulse += 0.08 + Math.random()*0.04;
+    dot.fade = Math.min(dot.fade+0.08, 1);
+    // Simulate "viewing bus" event
+    if (Math.random()<0.002) dot.viewing = !dot.viewing;
+  }
+}
+
+function renderStudentSimDots() {
+  if (!studentSimLayer) return;
+  studentSimLayer.clearLayers();
+  const maxDots = Math.min(studentSimDots.length, 200);
+  for (let i = 0; i < maxDots; i++) {
+    const dot = studentSimDots[i];
+    const r = 6 + 3*Math.sin(dot.pulse);
+    const opacity = 0.45 + 0.45*Math.sin(dot.pulse);
+    const color = dot.viewing ? '#fff' : dot.color;
+    const glow = dot.viewing ? '0 0 16px #fff, 0 0 8px #a78bfa' : `0 0 8px ${dot.color}`;
+    const circle = L.circleMarker([dot.lat, dot.lng], {
+      radius: r,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.18 + 0.5*Math.abs(Math.sin(dot.pulse)),
+      opacity: opacity,
+      weight: 2,
+      interactive: false
+    });
+    circle._path && (circle._path.style.filter = `drop-shadow(${glow})`);
+    studentSimLayer.addLayer(circle);
+  }
+  document.getElementById('studentSimViewerCount').textContent = maxDots;
+}
+
+function studentSimAnimationLoop(now) {
+  if (!studentSimEnabled) return;
+  if (now-studentSimLastUpdate > 500) {
+    updateStudentSimDots();
+    renderStudentSimDots();
+    studentSimLastUpdate = now;
+  }
+  requestAnimationFrame(studentSimAnimationLoop);
+}
+
+function setStudentSimEnabled(val) {
+  studentSimEnabled = val;
+  if (val) {
+    if (!studentSimLayer) {
+      studentSimLayer = L.layerGroup().addTo(map);
+      studentSimLayer.setZIndex(500);
+    }
+    studentSimDots = createStudentSimDots(studentSimCount);
+    renderStudentSimDots();
+    studentSimLastUpdate = performance.now();
+    requestAnimationFrame(studentSimAnimationLoop);
+  } else {
+    if (studentSimLayer) studentSimLayer.clearLayers();
+    document.getElementById('studentSimViewerCount').textContent = '0';
+  }
+}
+
+function updateStudentSimDemandZones() {
+  // Use hostel/class locations from admin panel logic if available
+  fetch('/api/hostels').then(r=>r.json()).then(hostels=>{
+    studentSimDemandZones.hostels = hostels.map(h=>[h.lat,h.lng]);
+  });
+  fetch('/api/classes').then(r=>r.json()).then(classes=>{
+    studentSimDemandZones.classes = classes.map(c=>[c.lat,c.lng]);
+  });
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  updateStudentSimDemandZones();
+  const enable = document.getElementById('studentSimEnable');
+  const count = document.getElementById('studentSimCount');
+  const speed = document.getElementById('studentSimSpeed');
+  const zone = document.getElementById('studentSimZone');
+  enable.addEventListener('change',()=>{
+    setStudentSimEnabled(enable.checked);
+  });
+  count.addEventListener('input',()=>{
+    studentSimCount = parseInt(count.value,10)||0;
+    if (studentSimEnabled) {
+      studentSimDots = createStudentSimDots(studentSimCount);
+      renderStudentSimDots();
+    }
+  });
+  speed.addEventListener('input',()=>{
+    studentSimSpeed = parseInt(speed.value,10)||1;
+    if (studentSimEnabled) {
+      for (const dot of studentSimDots) dot.speed = 0.00005 + Math.random()*0.00012*studentSimSpeed;
+    }
+  });
+  zone.addEventListener('change',()=>{
+    studentSimZone = zone.value;
+    if (studentSimEnabled) {
+      studentSimDots = createStudentSimDots(studentSimCount);
+      renderStudentSimDots();
+    }
+  });
+});
+// --- End Student Simulation Layer ---
+
+// --- System Load Simulation Logic ---
+let systemSimDriverIntervals = [];
+let systemSimStudentIntervals = [];
+let systemSimActiveBusNumbers = [];
+let systemSimRunning = false;
+let systemSimRoutesCache = [];
+
+function setSystemSimStatus(msg, running) {
+  document.getElementById('systemSimStatus').textContent = msg;
+  document.getElementById('systemSimStartBtn').disabled = running;
+  document.getElementById('systemSimStopBtn').disabled = !running;
+}
+
+async function startSystemDriverSimulation(driverCount) {
+  // Fetch routes once for all drivers
+  let routes = systemSimRoutesCache;
+  if (!routes.length) {
+    try {
+      const res = await fetch('/api/routes');
+      routes = await res.json();
+      systemSimRoutesCache = routes;
+    } catch (e) { setSystemSimStatus('Failed to fetch routes', false); return; }
+  }
+  for (let i = 0; i < driverCount; i++) {
+    const busNumber = 100 + i;
+    const route = routes[Math.floor(Math.random()*routes.length)];
+    if (!route || !route.waypoints || route.waypoints.length < 2) continue;
+    const waypoints = route.waypoints;
+    let segIdx = 0, t = 0;
+    let direction = 1;
+    let lat = waypoints[0][0], lng = waypoints[0][1];
+    let heading = 0;
+    systemSimActiveBusNumbers.push(busNumber);
+    // Assign route
+    fetch(`/api/bus/${busNumber}/route`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ routeId: route.id })
+    }).catch(()=>{});
+    // Movement interval
+    const interval = setInterval(() => {
+      // Move along waypoints
+      const a = waypoints[segIdx], b = waypoints[segIdx+1];
+      if (!a || !b) return;
+      const segDx = b[0]-a[0], segDy = b[1]-a[1];
+      const segLen = Math.sqrt(segDx*segDx + segDy*segDy);
+      const speed = 0.00012; // slow, realistic
+      t += speed;
+      if (t >= 1) { t = 0; segIdx++; if (segIdx >= waypoints.length-1) { segIdx = 0; } }
+      lat = a[0] + t*(b[0]-a[0]);
+      lng = a[1] + t*(b[1]-a[1]);
+      heading = Math.atan2(b[1]-a[1], b[0]-a[0]) * 180/Math.PI;
+      // Send update
+      fetch(`/api/bus/${busNumber}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng, heading, lastUpdate: new Date().toISOString() })
+      }).catch(()=>{});
+    }, 2000 + Math.floor(Math.random()*400)); // randomize a bit
+    systemSimDriverIntervals.push(interval);
+  }
+}
+
+function stopSystemDriverSimulation() {
+  for (const interval of systemSimDriverIntervals) clearInterval(interval);
+  systemSimDriverIntervals = [];
+  // Delete all simulated buses
+  for (const busNumber of systemSimActiveBusNumbers) {
+    fetch(`/api/bus/${busNumber}`, { method: 'DELETE' }).catch(()=>{});
+  }
+  systemSimActiveBusNumbers = [];
+}
 // --- Gamepad Status Indicator ---
 let gamepadStatusEl = document.createElement('div');
 gamepadStatusEl.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(18,24,38,0.92);color:#34d399;padding:6px 12px;border-radius:8px;font-size:13px;z-index:1001;border:1px solid #34d399;';
@@ -221,19 +612,59 @@ let alignerRouteCoords = null; // [[lat,lng], ...] from OSRM
 let alignerSegIdx = 0;         // current segment index on route
 let alignerT = 0;              // fractional progress along current segment (0..1)
 let alignerMoving = false;     // true while W is held
+let autoFollowEnabled = false; // automatic route following
+let autoFollowDirection = 1;   // 1 = forward, -1 = backward
 
 // Aligner UI
 const alignerCheck = document.getElementById('alignerCheck');
 const alignerToggleEl = document.getElementById('alignerToggle');
 const alignerBadge = alignerToggleEl.querySelector('.aligner-badge');
+const autoFollowPanel = document.getElementById('autoFollowPanel');
+const autoFollowBtn = document.getElementById('autoFollowBtn');
+const dirForwardBtn = document.getElementById('dirForwardBtn');
+const dirReverseBtn = document.getElementById('dirReverseBtn');
+
+function refreshAutoFollowUI() {
+  const showPanel = alignerEnabled;
+  const routeReady = !!(alignerRouteCoords && alignerRouteCoords.length >= 2);
+  const canRun = showPanel && routeReady;
+
+  autoFollowPanel.classList.toggle('visible', showPanel);
+  if (!canRun) autoFollowEnabled = false;
+
+  autoFollowBtn.disabled = !canRun;
+  autoFollowBtn.classList.toggle('running', autoFollowEnabled);
+  autoFollowBtn.textContent = autoFollowEnabled ? 'Auto Follow ON' : 'Auto Follow OFF';
+
+  dirForwardBtn.disabled = !canRun;
+  dirReverseBtn.disabled = !canRun;
+  dirForwardBtn.classList.toggle('active', autoFollowDirection === 1);
+  dirReverseBtn.classList.toggle('active', autoFollowDirection === -1);
+}
+
+function setAutoFollowDirection(dir) {
+  autoFollowDirection = dir >= 0 ? 1 : -1;
+  refreshAutoFollowUI();
+}
+
+autoFollowBtn.addEventListener('click', () => {
+  if (!alignerEnabled || !alignerRouteCoords || alignerRouteCoords.length < 2) return;
+  autoFollowEnabled = !autoFollowEnabled;
+  if (autoFollowEnabled) setSpeed(12);
+  refreshAutoFollowUI();
+});
+dirForwardBtn.addEventListener('click', () => setAutoFollowDirection(1));
+dirReverseBtn.addEventListener('click', () => setAutoFollowDirection(-1));
 
 alignerCheck.addEventListener('change', () => {
   alignerEnabled = alignerCheck.checked;
   alignerToggleEl.classList.toggle('active', alignerEnabled);
   alignerBadge.textContent = alignerEnabled ? 'ON' : 'OFF';
+  if (!alignerEnabled) autoFollowEnabled = false;
   if (alignerEnabled && alignerRouteCoords && alignerRouteCoords.length >= 2) {
     snapToNearestRoutePoint();
   }
+  refreshAutoFollowUI();
 });
 
 function calcDist(lat1, lng1, lat2, lng2) {
@@ -285,6 +716,338 @@ let routePolyline = null;
 let routeStopMarkers = [];
 let allRoutesData = [];
 
+// --- Load Simulation Mode ---
+const LOAD_SIM_START_BUS_NUMBER = 100;
+const LOAD_SIM_TICK_MS = 500;
+const LOAD_SIM_MAX_COUNT = 50;
+
+const activeSimulatedBuses = {};
+const loadSimulationTimers = {};
+let spawnedBusNumbers = [];
+let loadSimulationRunning = false;
+let loadSimulationBusy = false;
+
+const loadSimCountInput = document.getElementById('loadSimCount');
+const startLoadSimBtn = document.getElementById('startLoadSimBtn');
+const stopLoadSimBtn = document.getElementById('stopLoadSimBtn');
+const loadSimStatusEl = document.getElementById('loadSimStatus');
+
+function setLoadSimStatus(message, isError) {
+  loadSimStatusEl.textContent = message;
+  loadSimStatusEl.style.color = isError ? '#fb7185' : '#9aa4b2';
+}
+
+function refreshLoadSimControls() {
+  startLoadSimBtn.disabled = loadSimulationBusy || loadSimulationRunning;
+  stopLoadSimBtn.disabled = loadSimulationBusy || !loadSimulationRunning;
+}
+
+function clampLoadSimCount(value) {
+  const n = Number.isFinite(value) ? Math.round(value) : 0;
+  return Math.max(1, Math.min(LOAD_SIM_MAX_COUNT, n || 1));
+}
+
+function sanitizeWaypoints(route) {
+  if (!route || !Array.isArray(route.waypoints)) return [];
+  return route.waypoints
+    .map(wp => [Number(wp[0]), Number(wp[1])])
+    .filter(wp => Number.isFinite(wp[0]) && Number.isFinite(wp[1]));
+}
+
+function pickRandomRoute(routes) {
+  if (!routes.length) return null;
+  return routes[Math.floor(Math.random() * routes.length)];
+}
+
+function computeHeading(a, b, direction) {
+  const dx = b[1] - a[1];
+  const dy = b[0] - a[0];
+  const heading = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+  return direction >= 0 ? heading : (heading + 180) % 360;
+}
+
+function updateSimulatedBusPose(state) {
+  const a = state.waypoints[state.segmentIdx];
+  const b = state.waypoints[state.segmentIdx + 1];
+  if (!a || !b) return;
+
+  const t = Math.max(0, Math.min(1, state.t));
+  let latPos = a[0] + (b[0] - a[0]) * t;
+  let lngPos = a[1] + (b[1] - a[1]) * t;
+
+  const latMid = (a[0] + b[0]) * 0.5;
+  const metersPerLng = Math.max(1, 111320 * Math.cos(latMid * Math.PI / 180));
+  const segEast = (b[1] - a[1]) * metersPerLng;
+  const segNorth = (b[0] - a[0]) * 111320;
+  const segLen = Math.sqrt(segEast * segEast + segNorth * segNorth);
+
+  if (segLen > 0.001) {
+    const perpEast = -segNorth / segLen;
+    const perpNorth = segEast / segLen;
+    state.swayPhase += state.swayStep;
+    const swayMeters = Math.sin(state.swayPhase) * state.swayAmplitude;
+    latPos += (perpNorth * swayMeters) / 111320;
+    lngPos += (perpEast * swayMeters) / metersPerLng;
+  }
+
+  state.lat = latPos;
+  state.lng = lngPos;
+  state.heading = computeHeading(a, b, state.direction);
+
+  const dLat = b[0] - a[0];
+  const dLng = b[1] - a[1];
+  const vecMag = Math.sqrt(dLat * dLat + dLng * dLng) || 1;
+  const sign = state.direction >= 0 ? 1 : -1;
+  state.directionVector = {
+    lat: sign * dLat / vecMag,
+    lng: sign * dLng / vecMag
+  };
+}
+
+function advanceSimulatedBus(state, dtSec) {
+  if (!state || !Array.isArray(state.waypoints) || state.waypoints.length < 2) return;
+
+  state.speedPhase += state.speedPhaseStep;
+  const variedKmh = Math.max(4, state.baseSpeedKmh * (0.92 + 0.16 * Math.sin(state.speedPhase)));
+  let remainingMeters = (variedKmh / 3.6) * dtSec;
+  let guard = 0;
+
+  while (remainingMeters > 0.001 && guard < 128) {
+    guard++;
+    const a = state.waypoints[state.segmentIdx];
+    const b = state.waypoints[state.segmentIdx + 1];
+    if (!a || !b) break;
+
+    const segLen = calcDist(a[0], a[1], b[0], b[1]);
+    if (segLen < 0.05) {
+      if (state.direction >= 0) {
+        if (state.segmentIdx >= state.waypoints.length - 2) {
+          state.segmentIdx = state.waypoints.length - 2;
+          state.t = 1;
+          state.direction = -1;
+        } else {
+          state.segmentIdx += 1;
+          state.t = 0;
+        }
+      } else {
+        if (state.segmentIdx <= 0) {
+          state.segmentIdx = 0;
+          state.t = 0;
+          state.direction = 1;
+        } else {
+          state.segmentIdx -= 1;
+          state.t = 1;
+        }
+      }
+      continue;
+    }
+
+    if (state.direction >= 0) {
+      const distToEnd = (1 - state.t) * segLen;
+      if (remainingMeters >= distToEnd) {
+        remainingMeters -= distToEnd;
+        if (state.segmentIdx >= state.waypoints.length - 2) {
+          state.segmentIdx = state.waypoints.length - 2;
+          state.t = 1;
+          state.direction = -1;
+        } else {
+          state.segmentIdx += 1;
+          state.t = 0;
+        }
+      } else {
+        state.t += remainingMeters / segLen;
+        remainingMeters = 0;
+      }
+    } else {
+      const distToStart = state.t * segLen;
+      if (remainingMeters >= distToStart) {
+        remainingMeters -= distToStart;
+        if (state.segmentIdx <= 0) {
+          state.segmentIdx = 0;
+          state.t = 0;
+          state.direction = 1;
+        } else {
+          state.segmentIdx -= 1;
+          state.t = 1;
+        }
+      } else {
+        state.t -= remainingMeters / segLen;
+        remainingMeters = 0;
+      }
+    }
+  }
+
+  state.t = Math.max(0, Math.min(1, state.t));
+  updateSimulatedBusPose(state);
+}
+
+function sendSimulatedBusUpdate(state) {
+  if (!state || state.inFlight) return Promise.resolve(false);
+  state.inFlight = true;
+  const payload = {
+    lat: state.lat,
+    lng: state.lng,
+    routeId: state.routeId,
+    heading: state.heading,
+    lastUpdate: new Date().toISOString()
+  };
+  return fetch(`/api/bus/${state.busNumber}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {}).finally(() => {
+    state.inFlight = false;
+  });
+}
+
+function tickSimulatedBus(busNumber) {
+  const state = activeSimulatedBuses[busNumber];
+  if (!state || !loadSimulationRunning) return;
+  advanceSimulatedBus(state, LOAD_SIM_TICK_MS / 1000);
+  sendSimulatedBusUpdate(state);
+}
+
+function createSimulatedBusState(busNumber, route) {
+  const waypoints = sanitizeWaypoints(route);
+  if (waypoints.length < 2) return null;
+
+  const spawnIdx = Math.floor(Math.random() * waypoints.length);
+  const direction = Math.random() < 0.5 ? 1 : -1;
+  let segmentIdx = 0;
+  let t = 0;
+
+  if (direction >= 0) {
+    if (spawnIdx >= waypoints.length - 1) {
+      segmentIdx = waypoints.length - 2;
+      t = 1;
+    } else {
+      segmentIdx = spawnIdx;
+      t = 0;
+    }
+  } else {
+    if (spawnIdx <= 0) {
+      segmentIdx = 0;
+      t = 0;
+    } else {
+      segmentIdx = spawnIdx - 1;
+      t = 1;
+    }
+  }
+
+  const state = {
+    busNumber,
+    routeId: route.id,
+    waypoints,
+    segmentIdx,
+    t,
+    direction,
+    lat: waypoints[spawnIdx][0],
+    lng: waypoints[spawnIdx][1],
+    heading: 0,
+    directionVector: { lat: 0, lng: 0 },
+    baseSpeedKmh: 10 + Math.random() * 8,
+    speedPhase: Math.random() * Math.PI * 2,
+    speedPhaseStep: 0.08 + Math.random() * 0.1,
+    swayAmplitude: 1 + Math.random() * 2.5,
+    swayPhase: Math.random() * Math.PI * 2,
+    swayStep: 0.06 + Math.random() * 0.08,
+    inFlight: false
+  };
+  updateSimulatedBusPose(state);
+  return state;
+}
+
+async function stopLoadSimulation() {
+  const busesToStop = spawnedBusNumbers.slice();
+  if (!busesToStop.length && !loadSimulationRunning) {
+    setLoadSimStatus('Load simulation idle', false);
+    refreshLoadSimControls();
+    return;
+  }
+
+  loadSimulationBusy = true;
+  loadSimulationRunning = false;
+  refreshLoadSimControls();
+  setLoadSimStatus('Stopping simulation...', false);
+
+  busesToStop.forEach(busNumber => {
+    const timer = loadSimulationTimers[busNumber];
+    if (timer) clearInterval(timer);
+    delete loadSimulationTimers[busNumber];
+    delete activeSimulatedBuses[busNumber];
+  });
+
+  await Promise.allSettled(
+    busesToStop.map(busNumber => fetch(`/api/bus/${busNumber}`, { method: 'DELETE' }).catch(() => {}))
+  );
+
+  spawnedBusNumbers = [];
+  loadSimulationBusy = false;
+  setLoadSimStatus('Load simulation stopped', false);
+  refreshLoadSimControls();
+}
+
+async function startLoadSimulation() {
+  if (loadSimulationBusy || loadSimulationRunning) return;
+
+  loadSimulationBusy = true;
+  refreshLoadSimControls();
+
+  const desiredCount = clampLoadSimCount(parseInt(loadSimCountInput.value, 10));
+  loadSimCountInput.value = String(desiredCount);
+  setLoadSimStatus('Fetching routes...', false);
+
+  let routes = [];
+  try {
+    const res = await fetch('/api/routes');
+    routes = await res.json();
+  } catch (e) {
+    loadSimulationBusy = false;
+    setLoadSimStatus('Failed to fetch routes', true);
+    refreshLoadSimControls();
+    return;
+  }
+
+  const availableRoutes = (Array.isArray(routes) ? routes : []).filter(r => sanitizeWaypoints(r).length >= 2);
+  if (!availableRoutes.length) {
+    loadSimulationBusy = false;
+    setLoadSimStatus('No routes available for load simulation', true);
+    refreshLoadSimControls();
+    return;
+  }
+
+  loadSimulationBusy = false;
+  refreshLoadSimControls();
+  await stopLoadSimulation();
+
+  loadSimulationRunning = true;
+  refreshLoadSimControls();
+  setLoadSimStatus(`Starting ${desiredCount} transports...`, false);
+
+  const setupTasks = [];
+  for (let i = 0; i < desiredCount; i++) {
+    const busNumber = LOAD_SIM_START_BUS_NUMBER + i;
+    const route = pickRandomRoute(availableRoutes);
+    const state = createSimulatedBusState(busNumber, route);
+    if (!state) continue;
+
+    activeSimulatedBuses[busNumber] = state;
+    spawnedBusNumbers.push(busNumber);
+    loadSimulationTimers[busNumber] = setInterval(() => tickSimulatedBus(busNumber), LOAD_SIM_TICK_MS);
+
+    const assignTask = fetch(`/api/bus/${busNumber}/route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ routeId: state.routeId })
+    }).catch(() => {}).then(() => sendSimulatedBusUpdate(state));
+    setupTasks.push(assignTask);
+  }
+
+  await Promise.allSettled(setupTasks);
+  setLoadSimStatus(`Load simulation running: ${spawnedBusNumbers.length} transports`, false);
+  refreshLoadSimControls();
+}
+
 async function osrmRoute(waypoints) {
   if (waypoints.length < 2) return waypoints;
   try {
@@ -305,12 +1068,34 @@ function clearRouteDisplay() {
 async function showRouteOnMap(routeId) {
   clearRouteDisplay();
   alignerRouteCoords = null;
+  refreshAutoFollowUI();
   if (!routeId) return;
   const route = allRoutesData.find(r => String(r.id) === String(routeId));
   if (!route || !route.waypoints || route.waypoints.length < 2) return;
 
+  // Teleport simulator marker to route start as soon as a route is selected.
+  const routeStart = route.waypoints[0];
+  if (Array.isArray(routeStart) && routeStart.length >= 2) {
+    lat = Number(routeStart[0]);
+    lng = Number(routeStart[1]);
+    alignerSegIdx = 0;
+    alignerT = 0;
+    marker.setLatLng([lat, lng]);
+    trailPoints.length = 0;
+    trail.setLatLngs([]);
+    try { map.panTo([lat, lng], { animate: true, duration: 0.25 }); } catch (e) {}
+  }
+
   const coords = await osrmRoute(route.waypoints);
   alignerRouteCoords = coords; // cache for aligner
+  if (coords && coords.length >= 2) {
+    lat = coords[0][0];
+    lng = coords[0][1];
+    alignerSegIdx = 0;
+    alignerT = 0;
+    marker.setLatLng([lat, lng]);
+  }
+  refreshAutoFollowUI();
   routePolyline = L.polyline(coords, {
     color: route.color || '#667eea', weight: 4, opacity: 0.7, dashArray: '8,6'
   }).addTo(map);
@@ -408,6 +1193,7 @@ customSpeedInput.addEventListener('change', () => { setSpeed(parseFloat(customSp
 
 // Try to center on user location
 navigator.geolocation.getCurrentPosition((pos) => {
+  if (currentRouteId) return;
   lat = pos.coords.latitude;
   lng = pos.coords.longitude;
   map.setView([lat, lng], 16);
@@ -508,7 +1294,10 @@ function animate(now) {
         // --- ALIGNER MODE: move along route track ---
         // Use gamepad if available, else keyboard
         let goForward = false, goReverse = false;
-        if (gamepadHandler.isActive()) {
+        if (autoFollowEnabled) {
+            goForward = autoFollowDirection === 1;
+            goReverse = autoFollowDirection === -1;
+        } else if (gamepadHandler.isActive()) {
             const input = gamepadHandler.getInput();
             goForward = input.RT > 0.1 && input.LT < 0.1;
             goReverse = input.LT > 0.1 && input.RT < 0.1;
@@ -520,7 +1309,8 @@ function animate(now) {
 
         if (alignerMoving) {
             // Distance to travel this frame in degrees
-            let remaining = speedDegPerSec * boost * dt;
+            const alignerBoost = autoFollowEnabled ? 1 : boost;
+            let remaining = speedDegPerSec * alignerBoost * dt;
 
             if (goForward) {
                 // --- Forward along route (increasing segment index) ---
@@ -695,6 +1485,27 @@ function animate(now) {
 
 initBusSelect();
 initRouteSelect();
+refreshAutoFollowUI();
+refreshLoadSimControls();
+
+loadSimCountInput.addEventListener('change', () => {
+  loadSimCountInput.value = String(clampLoadSimCount(parseInt(loadSimCountInput.value, 10)));
+});
+startLoadSimBtn.addEventListener('click', () => {
+  startLoadSimulation().catch(() => {
+    loadSimulationBusy = false;
+    loadSimulationRunning = false;
+    refreshLoadSimControls();
+    setLoadSimStatus('Load simulation failed', true);
+  });
+});
+stopLoadSimBtn.addEventListener('click', () => {
+  stopLoadSimulation().catch(() => {
+    loadSimulationBusy = false;
+    refreshLoadSimControls();
+    setLoadSimStatus('Failed to stop simulation', true);
+  });
+});
 
 // Start/Stop button
 document.getElementById('startBtn').addEventListener('click', () => {
