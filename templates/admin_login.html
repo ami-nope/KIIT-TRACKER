@@ -175,7 +175,7 @@
         }
     </style>
 </head>
-<body>
+<body data-require-gold-pin="{{ (require_gold_pin or false) | tojson }}">
     <div class="box">
         <h1>{{ institute_name | default('Institute') }} — Admin</h1>
         <p class="muted">
@@ -195,7 +195,7 @@
         <div class="error-box">{{ error_text }}</div>
         {% endif %}
         <form method="POST" action="/admin/login" autocomplete="on">
-            <div id="primary-login-fields" style="display:{% if require_gold_pin %}none{% else %}block{% endif %};">
+            <div id="primary-login-fields" {% if require_gold_pin %}hidden{% endif %}>
                 <label>Campus Transport System-Admin Login</label>
                 <input name="institute_name" placeholder="E.g. Your Institute" value="{{ institute_name | default('') }}" autocomplete="organization">
 
@@ -209,7 +209,7 @@
                 </div>
             </div>
 
-            <div id="secondary-pin-fields" style="display:{% if require_gold_pin %}block{% else %}none{% endif %};">
+            <div id="secondary-pin-fields" {% if not require_gold_pin %}hidden{% endif %}>
                 <div class="pin-step-title">Account: <strong>{{ pending_gold_username or 'gold-admin' }}</strong></div>
                 <label>Assigned Login Pin</label>
                 <div class="pin-grid" id="loginPinGrid" aria-label="6-digit login pin">
@@ -233,10 +233,10 @@
             </div>
             <input type="hidden" name="action" id="actionField" value="login">
             <button type="button" class="primary-btn" onclick="submitLogin()">{% if require_gold_pin %}Verify Pin{% else %}Login{% endif %}</button>
-            <button type="button" class="secondary-btn" id="createBtn" onclick="submitSignup()" style="display:{% if require_gold_pin %}none{% else %}block{% endif %};">Create Account</button>
+            <button type="button" class="secondary-btn" id="createBtn" onclick="submitSignup()" {% if require_gold_pin %}hidden{% endif %}>Create Account</button>
         </form>
         <script>
-        const requireGoldPin = {{ (require_gold_pin or false) | tojson }};
+        const requireGoldPin = (document.body.dataset.requireGoldPin || 'false') === 'true';
 
         function toggleVisibility(inputId, btn){
             const el = document.getElementById(inputId);
