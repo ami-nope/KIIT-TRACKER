@@ -209,6 +209,49 @@ def _normalize_locations_payload(raw):
     routes = data.get('routes') if isinstance(data.get('routes'), list) else []
     return {'hostels': hostels, 'classes': classes, 'routes': routes}
 
+def _merge_locations_payload(base_payload, overlay_payload):
+    """Merge overlay into base by stable ids without deleting existing records."""
+    base = _normalize_locations_payload(base_payload)
+    overlay = _normalize_locations_payload(overlay_payload)
+    merged = {
+        'hostels': list(base.get('hostels', [])),
+        'classes': list(base.get('classes', [])),
+        'routes': list(base.get('routes', [])),
+    }
+
+    def merge_list_by_id(target_list, incoming_list, prefix):
+        seen = set()
+        for item in target_list:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get('id') or '')
+            if item_id:
+                seen.add(item_id)
+        fallback_counter = 0
+        for item in incoming_list if isinstance(incoming_list, list) else []:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get('id') or '').strip()
+            if not item_id:
+                fallback_counter += 1
+                item_id = f'{prefix}_legacy_{fallback_counter}'
+                if item_id in seen:
+                    continue
+                cloned = dict(item)
+                cloned['id'] = item_id
+                target_list.append(cloned)
+                seen.add(item_id)
+                continue
+            if item_id in seen:
+                continue
+            target_list.append(dict(item))
+            seen.add(item_id)
+
+    merge_list_by_id(merged['hostels'], overlay.get('hostels', []), 'hostel')
+    merge_list_by_id(merged['classes'], overlay.get('classes', []), 'class')
+    merge_list_by_id(merged['routes'], overlay.get('routes', []), 'route')
+    return merged
+
 def _build_route_index(routes):
     idx = {}
     for route in routes if isinstance(routes, list) else []:
@@ -333,6 +376,15 @@ def ensure_files():
                 pass
     if not os.path.exists(LOCATIONS_FILE):
         save_locations(copy.deepcopy(DEFAULT_LOCATIONS_PAYLOAD))
+    # If DATA_DIR is different from BASE_DIR, merge any committed repo locations
+    # so deploys can pick up routes committed in git without wiping existing data.
+    legacy_locations = os.path.join(BASE_DIR, LOCATIONS_FILE_NAME)
+    if os.path.abspath(legacy_locations) != os.path.abspath(LOCATIONS_FILE) and os.path.exists(legacy_locations):
+        active_payload = load_json(LOCATIONS_FILE, copy.deepcopy(DEFAULT_LOCATIONS_PAYLOAD))
+        legacy_payload = load_json(legacy_locations, copy.deepcopy(DEFAULT_LOCATIONS_PAYLOAD))
+        merged_payload = _merge_locations_payload(active_payload, legacy_payload)
+        if json.dumps(_normalize_locations_payload(active_payload), sort_keys=True) != json.dumps(_normalize_locations_payload(merged_payload), sort_keys=True):
+            save_locations(merged_payload)
     if not os.path.exists(CREDENTIALS_FILE):
         legacy = os.path.join(BASE_DIR, CREDENTIALS_FILE_NAME)
         if os.path.abspath(legacy) != os.path.abspath(CREDENTIALS_FILE) and os.path.exists(legacy):
@@ -2449,14 +2501,16 @@ def create_route():
     else:
         routes.append(route)
     locs['routes'] = routes
-    save_locations(locs)
+    if not save_locations(locs):
+        return jsonify({'error': 'Failed to persist route data on server'}), 500
     return jsonify({'status': 'success', 'route': route})
 
 @app.route('/api/route/<route_id>', methods=['DELETE'])
 def delete_route(route_id):
     locs = get_locations_for_update()
     locs['routes'] = [r for r in locs.get('routes', []) if r['id'] != route_id]
-    save_locations(locs)
+    if not save_locations(locs):
+        return jsonify({'error': 'Failed to persist route deletion on server'}), 500
     return jsonify({'status': 'success'})
 
 @app.route('/api/hostel', methods=['POST'])

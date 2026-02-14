@@ -538,6 +538,15 @@
             border: 1px solid rgba(102,126,234,0.20);
             background: rgba(102,126,234,0.05);
         }
+        .follow-road-feedback {
+            margin-top: 8px;
+            min-height: 16px;
+            font-size: 11px;
+            color: #9aa4b2;
+        }
+        .follow-road-feedback[data-state=loading] { color: #c7d2fe; }
+        .follow-road-feedback[data-state=success] { color: #86efac; }
+        .follow-road-feedback[data-state=error] { color: #fda4af; }
         .follow-road-segments {
             margin-top: 8px;
             display: flex;
@@ -590,6 +599,41 @@
             padding: 2px 8px;
             color: #dbe3ff;
             background: rgba(102,126,234,0.18);
+        }
+        .route-save-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(6,10,18,0.72);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+        }
+        .route-save-overlay[hidden] { display: none !important; }
+        .route-save-card {
+            width: min(480px, calc(100vw - 32px));
+            border-radius: 12px;
+            border: 1px solid rgba(102,126,234,0.28);
+            background: #101a2d;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+            padding: 14px 16px;
+        }
+        .route-save-title {
+            margin-bottom: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #e6eef8;
+        }
+        .route-save-sub {
+            font-size: 12px;
+            color: #9aa4b2;
+        }
+        .route-save-elapsed {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #c7d2fe;
         }
         @media (max-width: 520px) {
             .route-snap-row,
@@ -1450,6 +1494,7 @@
                             </label>
                             <div id="followRoadSegmentsPanel" class="follow-road-segments"></div>
                             <div class="draw-mode-hint">When enabled, route path follows roads between each consecutive stop.</div>
+                            <div id="followRoadFeedback" class="follow-road-feedback" aria-live="polite"></div>
                         </div>
 
                         <div class="field-group stop-radius-wrap">
@@ -1529,6 +1574,13 @@
                             <button id="saveRouteBtn" class="ok" style="background:rgba(52,211,153,0.1)">💾 Save Route</button>
                         </div>
                     </div>
+                </div>
+            </div>
+            <div id="routeSaveOverlay" class="route-save-overlay" hidden aria-live="polite">
+                <div class="route-save-card">
+                    <div id="routeSaveOverlayTitle" class="route-save-title">Saving route...</div>
+                    <div id="routeSaveOverlaySub" class="route-save-sub">Preparing route data</div>
+                    <div id="routeSaveOverlayElapsed" class="route-save-elapsed">Elapsed 0.0s</div>
                 </div>
             </div>
 
@@ -1865,6 +1917,13 @@
         let globalRouteSnapSettings = { ...DEFAULT_ROUTE_SNAP_SETTINGS };
         let routeSnapDraft = { override_global: false, enabled: true, distance_m: 10, show_range: false };
         let routeLinePreviewToken = 0;
+        let routePreviewAbortController = null;
+        let routeSaveInProgress = false;
+        let routeSaveTimerId = null;
+        let routeSaveStartedMs = 0;
+        const OSRM_SEGMENT_CACHE_TTL_MS = 5 * 60 * 1000;
+        const OSRM_SEGMENT_CACHE_MAX = 800;
+        const osrmSegmentCache = new Map();
         let renderQueued = false;
         let renderToken = 0;
         
@@ -3098,13 +3157,31 @@
             const segmentFlagsSnapshot = normalizeFollowRoadSegments(followRoadSegments, waypointsSnapshot.length, followRoadsEnabled);
             if (!segmentFlagsSnapshot.some(Boolean)) {
                 try { routeLine.setLatLngs(waypointsSnapshot); } catch (e) {}
+                setFollowRoadFeedback('');
                 drawSnapRangeLayers();
                 return;
             }
-            getOSRMRoute(waypointsSnapshot, segmentFlagsSnapshot).then((roadPath) => {
+            if (routePreviewAbortController) {
+                try { routePreviewAbortController.abort(); } catch (e) {}
+            }
+            routePreviewAbortController = new AbortController();
+            let usedAnyRoadSegment = false;
+            getOSRMRoute(waypointsSnapshot, segmentFlagsSnapshot, {
+                timeoutMs: 6500,
+                signal: routePreviewAbortController.signal,
+                onProgress: ({ completedSegments, totalSegments, usedRoad }) => {
+                    if (token !== routeLinePreviewToken) return;
+                    if (usedRoad) usedAnyRoadSegment = true;
+                    setFollowRoadFeedback(`Following roads... ${completedSegments}/${totalSegments}`, 'loading');
+                }
+            }).then((roadPath) => {
                 if (token !== routeLinePreviewToken) return;
                 if (!routeLine || !Array.isArray(roadPath) || roadPath.length < 2) return;
                 try { routeLine.setLatLngs(roadPath); } catch (e) {}
+                setFollowRoadFeedback(
+                    usedAnyRoadSegment ? 'Road-follow preview updated.' : 'Road lookup unavailable. Showing direct lines.',
+                    usedAnyRoadSegment ? 'success' : 'error'
+                );
                 drawSnapRangeLayers();
             }).catch(() => {});
         }
@@ -3247,9 +3324,14 @@
             suppressNextClick = false;
             followRoadsEnabled = false;
             followRoadSegments = [];
+            setFollowRoadFeedback('');
             resetRouteSnapDraftForNewRoute();
             resetStopHistory();
             routeLinePreviewToken += 1;
+            if (routePreviewAbortController) {
+                try { routePreviewAbortController.abort(); } catch (e) {}
+                routePreviewAbortController = null;
+            }
             if (routeMap && routeMap.dragging) {
                 try { routeMap.dragging.enable(); } catch (e) {}
             }
@@ -3523,42 +3605,210 @@
             drawSnapRangeLayers();
             updateRouteLineFollowRoadPreview();
         }
-        async function getOSRMRoute(waypoints, segmentFollowFlags = null) {
+        function setFollowRoadFeedback(message, state = '') {
+            const el = document.getElementById('followRoadFeedback');
+            if (!el) return;
+            el.textContent = message || '';
+            if (state) el.dataset.state = state;
+            else el.removeAttribute('data-state');
+        }
+
+        function setRouteBuilderDisabled(disabled) {
+            const ids = [
+                'saveRouteBtn', 'clearMapBtn', 'followRoadsToggle', 'drawMode', 'routeName',
+                'routeColor', 'showStopRadius', 'stopRadiusSlider', 'stopRadiusCustom',
+                'applyStopRadiusBtn', 'globalSnapEnabled', 'globalSnapDistanceSlider',
+                'globalSnapDistanceCustom', 'saveGlobalSnapBtn', 'globalSnapShowRange',
+                'routeSnapOverride', 'routeSnapEnabled', 'routeSnapDistanceSlider',
+                'routeSnapDistanceCustom', 'applyRouteSnapBtn', 'routeSnapShowRange'
+            ];
+            ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = !!disabled;
+            });
+        }
+
+        function startRouteSaveOverlay(title, subText) {
+            const overlay = document.getElementById('routeSaveOverlay');
+            const titleEl = document.getElementById('routeSaveOverlayTitle');
+            const subEl = document.getElementById('routeSaveOverlaySub');
+            const elapsedEl = document.getElementById('routeSaveOverlayElapsed');
+            routeSaveStartedMs = performance.now();
+            if (titleEl) titleEl.textContent = title || 'Saving route...';
+            if (subEl) subEl.textContent = subText || 'Preparing route data';
+            if (elapsedEl) elapsedEl.textContent = 'Elapsed 0.0s';
+            if (overlay) overlay.hidden = false;
+            setRouteBuilderDisabled(true);
+            routeSaveInProgress = true;
+            if (routeSaveTimerId) {
+                try { clearInterval(routeSaveTimerId); } catch (e) {}
+            }
+            routeSaveTimerId = setInterval(() => {
+                if (!elapsedEl) return;
+                const elapsed = Math.max(0, (performance.now() - routeSaveStartedMs) / 1000);
+                elapsedEl.textContent = `Elapsed ${elapsed.toFixed(1)}s`;
+            }, 100);
+        }
+
+        function updateRouteSaveOverlay(subText) {
+            const subEl = document.getElementById('routeSaveOverlaySub');
+            if (subEl && subText) subEl.textContent = subText;
+        }
+
+        function stopRouteSaveOverlay() {
+            const overlay = document.getElementById('routeSaveOverlay');
+            if (routeSaveTimerId) {
+                try { clearInterval(routeSaveTimerId); } catch (e) {}
+                routeSaveTimerId = null;
+            }
+            if (overlay) overlay.hidden = true;
+            setRouteBuilderDisabled(false);
+            routeSaveInProgress = false;
+        }
+
+        function normalizeCoordForCache(v) {
+            const n = Number(v);
+            if (!Number.isFinite(n)) return 0;
+            return Math.round(n * 1e6) / 1e6;
+        }
+
+        function buildOsrmSegmentCacheKey(from, to) {
+            return `${normalizeCoordForCache(from[0])},${normalizeCoordForCache(from[1])}|${normalizeCoordForCache(to[0])},${normalizeCoordForCache(to[1])}`;
+        }
+
+        function pruneOsrmSegmentCache() {
+            const now = Date.now();
+            for (const [key, value] of osrmSegmentCache.entries()) {
+                if (!value || (now - Number(value.ts || 0)) > OSRM_SEGMENT_CACHE_TTL_MS) {
+                    osrmSegmentCache.delete(key);
+                }
+            }
+            if (osrmSegmentCache.size <= OSRM_SEGMENT_CACHE_MAX) return;
+            const keys = Array.from(osrmSegmentCache.keys());
+            const extra = osrmSegmentCache.size - OSRM_SEGMENT_CACHE_MAX;
+            for (let i = 0; i < extra; i += 1) {
+                osrmSegmentCache.delete(keys[i]);
+            }
+        }
+
+        function getCachedOsrmSegment(from, to) {
+            pruneOsrmSegmentCache();
+            const key = buildOsrmSegmentCacheKey(from, to);
+            const hit = osrmSegmentCache.get(key);
+            if (!hit || !Array.isArray(hit.segment) || hit.segment.length < 2) return null;
+            return hit.segment.map((pt) => [pt[0], pt[1]]);
+        }
+
+        function setCachedOsrmSegment(from, to, segment) {
+            if (!Array.isArray(segment) || segment.length < 2) return;
+            const key = buildOsrmSegmentCacheKey(from, to);
+            osrmSegmentCache.set(key, {
+                ts: Date.now(),
+                segment: segment.map((pt) => [pt[0], pt[1]]),
+            });
+            pruneOsrmSegmentCache();
+        }
+
+        async function fetchOsrmSegment(from, to, timeoutMs, externalSignal) {
+            const cached = getCachedOsrmSegment(from, to);
+            if (cached) {
+                return { segment: cached, usedRoad: true, attemptedRoad: true };
+            }
+            const coords = `${from[1]},${from[0]};${to[1]},${to[0]}`;
+            const url = `https://router.project-osrm.org/route/v1/driving/${coords}?geometries=geojson&overview=full`;
+            let timeoutId = null;
+            try {
+                const controller = new AbortController();
+                timeoutId = setTimeout(() => {
+                    try { controller.abort(); } catch (e) {}
+                }, timeoutMs);
+                if (externalSignal) {
+                    if (externalSignal.aborted) throw new Error('aborted');
+                    externalSignal.addEventListener('abort', () => {
+                        try { controller.abort(); } catch (e) {}
+                    }, { once: true });
+                }
+                const res = await fetch(url, { signal: controller.signal });
+                if (!res.ok) throw new Error(`osrm_http_${res.status}`);
+                const data = await res.json();
+                const coordsArr = data && data.routes && data.routes[0] && data.routes[0].geometry && data.routes[0].geometry.coordinates;
+                if (!Array.isArray(coordsArr) || coordsArr.length < 2) throw new Error('osrm_no_geometry');
+                const segment = coordsArr.map((c) => [c[1], c[0]]);
+                setCachedOsrmSegment(from, to, segment);
+                return { segment, usedRoad: true, attemptedRoad: true };
+            } catch (e) {
+                if (externalSignal && externalSignal.aborted) throw e;
+                return { segment: [from, to], usedRoad: false, attemptedRoad: true };
+            } finally {
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
+                }
+            }
+        }
+
+        async function getOSRMRoute(waypoints, segmentFollowFlags = null, options = {}) {
             try {
                 if (waypoints.length < 2) return waypoints;
+                const onProgress = (options && typeof options.onProgress === 'function') ? options.onProgress : null;
+                const timeoutMs = Math.max(1500, Number(options && options.timeoutMs) || 9000);
+                const externalSignal = options && options.signal;
                 const segmentCount = Math.max(0, waypoints.length - 1);
                 const flags = Array.isArray(segmentFollowFlags)
                     ? segmentFollowFlags.slice(0, segmentCount).map((flag) => !!flag)
                     : Array.from({ length: segmentCount }, () => true);
                 while (flags.length < segmentCount) flags.push(!!followRoadsEnabled);
 
-                const merged = [];
-                for (let i = 0; i < segmentCount; i++) {
-                    const from = waypoints[i];
-                    const to = waypoints[i + 1];
-                    let segment = null;
-                    if (flags[i]) {
-                        const coords = `${from[1]},${from[0]};${to[1]},${to[0]}`;
-                        const url = `https://router.project-osrm.org/route/v1/driving/${coords}?geometries=geojson`;
-                        try {
-                            const res = await fetch(url);
-                            const data = await res.json();
-                            if (data.routes && data.routes[0] && data.routes[0].geometry && Array.isArray(data.routes[0].geometry.coordinates)) {
-                                segment = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                            }
-                        } catch (err) {
-                            segment = null;
+                const results = new Array(segmentCount);
+                const concurrency = Math.max(1, Math.min(6, segmentCount));
+                let nextIndex = 0;
+                let completed = 0;
+
+                const worker = async () => {
+                    while (true) {
+                        const idx = nextIndex;
+                        nextIndex += 1;
+                        if (idx >= segmentCount) break;
+                        if (externalSignal && externalSignal.aborted) throw new Error('aborted');
+                        const from = waypoints[idx];
+                        const to = waypoints[idx + 1];
+                        if (!flags[idx]) {
+                            results[idx] = { segment: [from, to], usedRoad: false, attemptedRoad: false };
+                        } else {
+                            results[idx] = await fetchOsrmSegment(from, to, timeoutMs, externalSignal);
+                        }
+                        completed += 1;
+                        if (onProgress) {
+                            try {
+                                onProgress({
+                                    segmentIndex: idx,
+                                    totalSegments: segmentCount,
+                                    completedSegments: completed,
+                                    attemptedRoad: !!results[idx].attemptedRoad,
+                                    usedRoad: !!results[idx].usedRoad,
+                                });
+                            } catch (e) {}
                         }
                     }
-                    if (!segment || segment.length < 2) {
-                        segment = [from, to];
-                    }
-                    if (!merged.length) merged.push(...segment);
-                    else merged.push(...segment.slice(1));
+                };
+
+                const workers = [];
+                for (let i = 0; i < concurrency; i += 1) workers.push(worker());
+                await Promise.all(workers);
+                if (externalSignal && externalSignal.aborted) throw new Error('aborted');
+
+                const merged = [];
+                for (let i = 0; i < segmentCount; i += 1) {
+                    const seg = (results[i] && Array.isArray(results[i].segment) && results[i].segment.length >= 2)
+                        ? results[i].segment
+                        : [waypoints[i], waypoints[i + 1]];
+                    if (!merged.length) merged.push(...seg);
+                    else merged.push(...seg.slice(1));
                 }
                 return merged.length >= 2 ? merged : waypoints;
-            } catch(e) {
-                console.error('OSRM error:', e);
+            } catch (e) {
+                if (!(options && options.silent)) console.error('OSRM route build error:', e);
                 return waypoints;
             }
         }
@@ -3640,6 +3890,7 @@
         });
 
         document.getElementById('saveRouteBtn').addEventListener('click', async () => {
+            if (routeSaveInProgress) return;
             const name = document.getElementById('routeName').value.trim();
             const color = document.getElementById('routeColor').value;
             
@@ -3659,42 +3910,73 @@
             const followRoadSegmentsForSave = normalizeFollowRoadSegments(followRoadSegments, waypointsForSave.length, followRoadsEnabled);
             const hasRoadFollowing = followRoadSegmentsForSave.some(Boolean);
             let pathPointsForSave = waypointsForSave;
-            if (hasRoadFollowing) {
-                pathPointsForSave = await getOSRMRoute(waypointsForSave, followRoadSegmentsForSave);
-                if (!Array.isArray(pathPointsForSave) || pathPointsForSave.length < 2) {
-                    pathPointsForSave = waypointsForSave;
+            startRouteSaveOverlay('Saving route...', 'Validating route details');
+            try {
+                if (hasRoadFollowing) {
+                    updateRouteSaveOverlay('Following roads and building path points');
+                    let roadFallbackCount = 0;
+                    pathPointsForSave = await getOSRMRoute(waypointsForSave, followRoadSegmentsForSave, {
+                        timeoutMs: 10000,
+                        onProgress: ({ completedSegments, totalSegments, attemptedRoad, usedRoad }) => {
+                            if (attemptedRoad && !usedRoad) roadFallbackCount += 1;
+                            updateRouteSaveOverlay(`Following roads... ${completedSegments}/${totalSegments}`);
+                        }
+                    });
+                    if (!Array.isArray(pathPointsForSave) || pathPointsForSave.length < 2) {
+                        pathPointsForSave = waypointsForSave;
+                    }
+                    if (roadFallbackCount > 0) {
+                        setFollowRoadFeedback(
+                            `${roadFallbackCount} segment(s) used direct fallback due to slow/unavailable road lookup.`,
+                            'error'
+                        );
+                    } else {
+                        setFollowRoadFeedback('All selected segments followed roads successfully.', 'success');
+                    }
+                } else {
+                    setFollowRoadFeedback('');
                 }
-            }
-            routeSnapDraft = normalizeRouteSnapDraft(routeSnapDraft);
-            
-            const route = {
-                id: editingRouteId || `route_${Date.now()}`,
-                name: name,
-                waypoints: waypointsForSave,
-                path_points: pathPointsForSave,
-                stops: currentStops,
-                color: color,
-                follow_roads: !!hasRoadFollowing,
-                follow_roads_segments: followRoadSegmentsForSave,
-                snap_settings: {
-                    override_global: !!routeSnapDraft.override_global,
-                    enabled: !!routeSnapDraft.enabled,
-                    distance_m: normalizeSnapDistance(routeSnapDraft.distance_m, globalRouteSnapSettings.distance_m),
-                    show_range: !!routeSnapDraft.show_range
+                routeSnapDraft = normalizeRouteSnapDraft(routeSnapDraft);
+                
+                const route = {
+                    id: editingRouteId || `route_${Date.now()}`,
+                    name: name,
+                    waypoints: waypointsForSave,
+                    path_points: pathPointsForSave,
+                    stops: currentStops,
+                    color: color,
+                    follow_roads: !!hasRoadFollowing,
+                    follow_roads_segments: followRoadSegmentsForSave,
+                    snap_settings: {
+                        override_global: !!routeSnapDraft.override_global,
+                        enabled: !!routeSnapDraft.enabled,
+                        distance_m: normalizeSnapDistance(routeSnapDraft.distance_m, globalRouteSnapSettings.distance_m),
+                        show_range: !!routeSnapDraft.show_range
+                    }
+                };
+                updateRouteSaveOverlay('Saving route to server');
+                const res = await fetch('/api/route', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(route)
+                });
+                if (!res.ok) {
+                    let errMessage = 'Failed to save route';
+                    try {
+                        const errData = await res.json();
+                        errMessage = errData.error || errMessage;
+                    } catch (e) {}
+                    throw new Error(errMessage);
                 }
-            };
-            
-            const res = await fetch('/api/route', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify(route)
-            });
-            
-            if (res.ok) {
+                updateRouteSaveOverlay('Refreshing route list');
                 editingRouteId = null;
                 document.getElementById('routeName').value = '';
                 resetRouteBuilderState();
                 await loadRoutes();
+            } catch (e) {
+                alert(e.message || 'Failed to save route');
+            } finally {
+                stopRouteSaveOverlay();
             }
         });
 
