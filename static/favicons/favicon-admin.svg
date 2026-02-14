@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="pin" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#1d4ed8"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="bus" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fbff"/>
+      <stop offset="100%" stop-color="#d9e8ff"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 4C19.3 4 9 14.3 9 27c0 15.8 18.1 31.7 21.2 34.3a2.6 2.6 0 0 0 3.6 0C36.9 58.7 55 42.8 55 27 55 14.3 44.7 4 32 4z" fill="url(#pin)"/>
+  <circle cx="32" cy="27" r="16" fill="#1b2450" opacity="0.95"/>
+  <rect x="23.5" y="18.2" width="17" height="18" rx="3.8" fill="url(#bus)"/>
+  <rect x="26.3" y="20.8" width="11.4" height="6.8" rx="1.8" fill="#243a75"/>
+  <rect x="28.1" y="30.2" width="7.8" height="1.8" rx="0.9" fill="#2f4b8a"/>
+  <circle cx="27.7" cy="34.2" r="1.5" fill="#2f4b8a"/>
+  <circle cx="36.3" cy="34.2" r="1.5" fill="#2f4b8a"/>
+  <path d="M32 40.5l-4.7 5.4h9.4z" fill="#9dbbff"/>
+  <circle cx="49.2" cy="13.2" r="8.4" fill="#ef4444" stroke="#fee2e2" stroke-width="1.5"/>
+  <text x="49.2" y="16.4" text-anchor="middle" font-size="8.6" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#fff1f2">A</text>
+</svg>
